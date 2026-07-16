@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import {
   ArrowRight,
   CalendarDays,
-  Megaphone,
+  Mail,
   Settings,
   Tags,
   Users,
@@ -11,16 +11,16 @@ import {
 import { getSupabase } from "@/lib/supabase";
 
 type Tab =
-  "Orders" | "Customers" | "Team" | "Discounts" | "Announcements" | "Settings";
+  "Orders" | "Customers" | "Team" | "Discounts" | "Email Center" | "Settings";
 const adminTabs: Tab[] = [
   "Orders",
   "Customers",
   "Team",
   "Discounts",
-  "Announcements",
+  "Email Center",
   "Settings",
 ];
-const employeeTabs: Tab[] = ["Orders", "Announcements", "Settings"];
+const employeeTabs: Tab[] = ["Orders", "Email Center", "Settings"];
 type Order = {
   id: string;
   tracking_code: string;
@@ -42,6 +42,11 @@ export default function Staff() {
   const [authError, setAuthError] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [emailTemplate, setEmailTemplate] = useState("quote");
+  const [recipient, setRecipient] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [orderNumber, setOrderNumber] = useState("");
+  const [emailDetails, setEmailDetails] = useState("");
 
   async function finishLogin(userId: string) {
     const supabase = getSupabase();
@@ -104,6 +109,54 @@ export default function Staff() {
     setOrders([]);
     setPassword("");
     setActiveTab("Orders");
+  }
+
+  function buildEmail() {
+    const name = customerName.trim() || "there";
+    const order = orderNumber.trim() ? ` #${orderNumber.trim().replace(/^#/, "")}` : "";
+    const templates: Record<string, { subject: string; message: string }> = {
+      received: {
+        subject: `Vertex order${order} received`,
+        message: `We received your request and are reviewing the details. We will contact you when your quote is ready.`,
+      },
+      quote: {
+        subject: `Your Vertex quote${order} is ready`,
+        message: `Your custom 3D-printing quote is ready. Reply to this email to approve it or ask any questions.`,
+      },
+      printing: {
+        subject: `Vertex order${order} is printing`,
+        message: `Good news—your order is now being printed. We will send another update when it is ready.`,
+      },
+      ready: {
+        subject: `Vertex order${order} is ready`,
+        message: `Your order is finished and ready for pickup or shipping. Reply to confirm the next step.`,
+      },
+      completed: {
+        subject: `Vertex order${order} completed`,
+        message: `Your Vertex order is complete. Thank you for supporting our 3D-printing business.`,
+      },
+      refund: {
+        subject: `Vertex refund update${order}`,
+        message: `We have processed the refund for your order. Please allow your payment provider time to post it.`,
+      },
+      custom: {
+        subject: `A message from Vertex${order}`,
+        message: `We have an update about your Vertex order.`,
+      },
+    };
+    const selected = templates[emailTemplate];
+    const extra = emailDetails.trim() ? `\n\n${emailDetails.trim()}` : "";
+    return {
+      subject: selected.subject,
+      body: `Hi ${name},\n\n${selected.message}${extra}\n\nThank you,\nVertex 3D Printing`,
+    };
+  }
+
+  function openGmail(e: React.FormEvent) {
+    e.preventDefault();
+    const email = buildEmail();
+    const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(recipient)}&su=${encodeURIComponent(email.subject)}&body=${encodeURIComponent(email.body)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
   }
 
   if (!logged)
@@ -448,47 +501,57 @@ export default function Staff() {
               </article>
             </div>
           )}
-          {activeTab === "Announcements" && (
-            <article className="panel">
-              <span className="panel-icon">
-                <Megaphone size={22} />
-              </span>
-              <h2>Company announcements</h2>
-              {role === "admin" ? (
-                <>
-                  <p className="panel-copy">
-                    Create an update for every approved employee.
-                  </p>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      setSaved("Announcement");
-                    }}
-                  >
+          {activeTab === "Email Center" && (
+            <div className="email-center">
+              <article className="panel">
+                <span className="panel-icon"><Mail size={22} /></span>
+                <h2>Vertex Email Center</h2>
+                <p className="panel-copy">
+                  Build a professional customer update, then review and send it from the Vertex Gmail account.
+                </p>
+                <form onSubmit={openGmail}>
+                  <div className="grid2">
                     <div className="field">
-                      <label>Subject</label>
-                      <input required placeholder="Vertex team update" />
+                      <label htmlFor="email-recipient">Customer email</label>
+                      <input id="email-recipient" type="email" required value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="customer@example.com" />
                     </div>
                     <div className="field">
-                      <label>Message</label>
-                      <textarea
-                        required
-                        placeholder="Write the announcement…"
-                      />
+                      <label htmlFor="email-name">Customer name</label>
+                      <input id="email-name" required value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Customer name" />
                     </div>
-                    {notice}
-                    <button className="btn btn-dark">
-                      Save announcement draft
-                    </button>
-                  </form>
-                </>
-              ) : (
-                <div className="announcement-card">
-                  <strong>Welcome to Vertex</strong>
-                  <p>Company announcements will appear here.</p>
-                </div>
-              )}
-            </article>
+                  </div>
+                  <div className="grid2">
+                    <div className="field">
+                      <label htmlFor="email-template">Message type</label>
+                      <select id="email-template" value={emailTemplate} onChange={(e) => setEmailTemplate(e.target.value)}>
+                        <option value="received">Order received</option>
+                        <option value="quote">Quote ready</option>
+                        <option value="printing">Printing started</option>
+                        <option value="ready">Ready for pickup or shipping</option>
+                        <option value="completed">Order completed</option>
+                        <option value="refund">Refund processed</option>
+                        <option value="custom">Custom update</option>
+                      </select>
+                    </div>
+                    <div className="field">
+                      <label htmlFor="email-order">Order number</label>
+                      <input id="email-order" required value={orderNumber} onChange={(e) => setOrderNumber(e.target.value)} placeholder="VTX-1042" />
+                    </div>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="email-details">Additional details (optional)</label>
+                    <textarea id="email-details" value={emailDetails} onChange={(e) => setEmailDetails(e.target.value)} placeholder="Add pickup instructions, pricing, timing, or another personal note." />
+                  </div>
+                  <button className="btn btn-dark"><Mail size={16} /> Open draft in Gmail</button>
+                </form>
+              </article>
+              <article className="panel email-preview">
+                <p className="eyebrow">Live preview</p>
+                <h2>{buildEmail().subject}</h2>
+                <pre>{buildEmail().body}</pre>
+                <p className="demo-note">Nothing is sent automatically. Gmail opens a draft so you can check it before sending.</p>
+              </article>
+            </div>
           )}
           {activeTab === "Settings" && (
             <article className="panel">
@@ -542,10 +605,6 @@ export default function Staff() {
               )}
             </article>
           )}
-          <p className="demo-note">
-            Demo data only. Secure cloud data activates after Supabase is
-            connected.
-          </p>
         </section>
       </div>
     </main>
