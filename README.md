@@ -38,6 +38,7 @@ GitHub Pages hosts the frontend. Secure order storage and admin access use Supab
 - Keep the 2–3 administrator email addresses in a server-only allowlist. Staff may be promoted from Handout to Order Taker to Printer to Social Management, but never to Administrator.
 - Store only a strong hash of the private administrator code; never place the real code in browser code or GitHub.
 - Employees sign in with emailed one-time codes and receive the configured discount only after their employee record is verified.
+- Supabase Cron permanently deletes completed orders and their status history 24 hours after completion. Non-completed orders are retained.
 - Give every employee one approved Gmail address. Use it for one-time sign-in codes, assignments, and team announcements; never store employee Gmail passwords.
 - Send company-wide mail from the parent-managed Vertex account through the Gmail API, with recipients hidden from one another (or use a parent-managed Google Group later).
 - Keep uploaded models in a private storage bucket with signed download links.

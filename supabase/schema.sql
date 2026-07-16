@@ -24,6 +24,7 @@ create table public.orders (
   quantity integer not null default 1 check (quantity > 0),
   details text not null,
   status public.order_status not null default 'requested',
+  completed_at timestamptz,
   assigned_to uuid references public.profiles(id),
   quoted_cents integer check (quoted_cents >= 0),
   created_at timestamptz not null default now(),
