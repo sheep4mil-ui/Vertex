@@ -32,7 +32,7 @@ export default function Home() {
       p_update_preference: preference,
       p_material: String(values.get("material") || ""),
       p_quantity: Number(values.get("quantity") || 1),
-      p_details: String(values.get("details") || ""),
+      p_details: String(values.get("custom_description") || ""),
       p_model_url: String(values.get("model_url") || ""),
     });
     if (error) setMessage(`Order could not be saved: ${error.message}`);
@@ -219,8 +219,19 @@ export default function Home() {
                 </div>
               </div>
               <div className="field">
-                <label htmlFor="details">Tell us about the print</label>
-                <textarea id="details" name="details" required />
+                <label htmlFor="custom_description">
+                  Custom order description
+                </label>
+                <textarea
+                  id="custom_description"
+                  name="custom_description"
+                  required
+                  placeholder="Describe the object, size, color, purpose, special features, and any deadline."
+                />
+                <small>
+                  Use this for a completely custom idea or to explain changes
+                  you want made to a linked model.
+                </small>
               </div>
               <div className="field">
                 <label htmlFor="model_url">
