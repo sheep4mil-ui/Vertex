@@ -50,10 +50,23 @@ create table public.seasonal_discounts (
   created_at timestamptz not null default now()
 );
 
+create table public.promo_codes (
+  id bigint generated always as identity primary key,
+  code text not null unique check (code = upper(code) and length(code) between 3 and 20),
+  percent_off smallint not null check (percent_off between 1 and 100),
+  expires_at timestamptz not null,
+  max_uses integer check (max_uses is null or max_uses > 0),
+  times_used integer not null default 0 check (times_used >= 0),
+  active boolean not null default true,
+  created_by uuid not null references public.profiles(id),
+  created_at timestamptz not null default now()
+);
+
 alter table public.profiles enable row level security;
 alter table public.orders enable row level security;
 alter table public.order_updates enable row level security;
 alter table public.seasonal_discounts enable row level security;
+alter table public.promo_codes enable row level security;
 
 -- Staff can see their own profile. Admins can manage all profiles.
 create policy "read own profile" on public.profiles for select to authenticated using (id = auth.uid());
@@ -70,6 +83,10 @@ using (exists(select 1 from public.profiles p where p.id=auth.uid() and p.active
 create policy "everyone reads active discounts" on public.seasonal_discounts for select
 using (active and now() between starts_at and ends_at);
 create policy "admins manage discounts" on public.seasonal_discounts for all to authenticated
+using (exists(select 1 from public.profiles p where p.id=auth.uid() and p.active and p.level='admin'))
+with check (exists(select 1 from public.profiles p where p.id=auth.uid() and p.active and p.level='admin'));
+
+create policy "admins manage promo codes" on public.promo_codes for all to authenticated
 using (exists(select 1 from public.profiles p where p.id=auth.uid() and p.active and p.level='admin'))
 with check (exists(select 1 from public.profiles p where p.id=auth.uid() and p.active and p.level='admin'));
 
