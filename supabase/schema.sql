@@ -1,5 +1,5 @@
 -- Run in the Supabase SQL editor after a parent-managed project is created.
-create type public.staff_level as enum ('employee', 'lead', 'manager', 'admin');
+create type public.staff_level as enum ('handout', 'order_taker', 'printer', 'social_management', 'admin');
 create type public.order_status as enum ('requested', 'quoted', 'approved', 'printing', 'ready', 'shipped', 'completed', 'cancelled');
 
 create table public.profiles (
@@ -74,11 +74,12 @@ create policy "admins manage profiles" on public.profiles for all to authenticat
 using ((select level from public.profiles where id = auth.uid()) = 'admin')
 with check ((select level from public.profiles where id = auth.uid()) = 'admin');
 
--- Approved staff may read orders. Leads, managers, and admins may update them.
+-- Approved staff may read assigned work. Order takers, printers, social
+-- management, and admins may update order workflow information.
 create policy "active staff read orders" on public.orders for select to authenticated
 using (exists(select 1 from public.profiles p where p.id=auth.uid() and p.active and p.level is not null));
 create policy "senior staff update orders" on public.orders for update to authenticated
-using (exists(select 1 from public.profiles p where p.id=auth.uid() and p.active and p.level in ('lead','manager','admin')));
+using (exists(select 1 from public.profiles p where p.id=auth.uid() and p.active and p.level in ('order_taker','printer','social_management','admin')));
 
 create policy "everyone reads active discounts" on public.seasonal_discounts for select
 using (active and now() between starts_at and ends_at);
