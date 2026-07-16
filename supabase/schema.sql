@@ -23,6 +23,7 @@ create table public.orders (
   material text,
   quantity integer not null default 1 check (quantity > 0),
   details text not null,
+  model_url text check (model_url is null or model_url ~* '^https://'),
   status public.order_status not null default 'requested',
   completed_at timestamptz,
   assigned_to uuid references public.profiles(id),
