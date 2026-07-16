@@ -47,7 +47,7 @@ export default function Home() {
   return (
     <>
       <header className="shell nav">
-        <a className="brand" href="#">
+        <a className="brand" href="#order">
           <span className="mark">V</span>Vertex
         </a>
         <nav className="navlinks">
@@ -257,9 +257,9 @@ export default function Home() {
         </section>
       </main>
       <footer className="shell footer">
-        <div className="brand">
+        <a className="brand" href="#order">
           <span className="mark">V</span>Vertex
-        </div>
+        </a>
         <span>Custom 3D printing in Texas</span>
         <a className="staff-link" href="staff">
           Staff sign in
