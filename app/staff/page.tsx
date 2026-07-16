@@ -80,8 +80,9 @@ export default function Staff() {
   const [priceMaterial, setPriceMaterial] = useState<"PLA" | "PETG">("PLA");
   const [estimatedGrams, setEstimatedGrams] = useState(100);
   const [estimatedHours, setEstimatedHours] = useState(5);
+  const [modelingHours, setModelingHours] = useState(0);
   const gramRate = priceMaterial === "PLA" ? 0.15 : 0.25;
-  const estimatedPrice = 5 + estimatedGrams * gramRate + estimatedHours * 2;
+  const estimatedPrice = 5 + estimatedGrams * gramRate + estimatedHours * 2 + modelingHours;
 
   async function finishLogin(userId: string) {
     const supabase = getSupabase();
@@ -545,12 +546,17 @@ export default function Staff() {
                     <input id="admin-price-hours" type="number" min="0" max="1000" step="0.25" value={estimatedHours} onChange={(e) => setEstimatedHours(Math.max(0, Number(e.target.value)))} />
                   </div>
                 </div>
+                <div className="field">
+                  <label htmlFor="admin-modeling-hours">Modeling work hours</label>
+                  <input id="admin-modeling-hours" type="number" min="0" max="1000" step="0.25" value={modelingHours} onChange={(e) => setModelingHours(Math.max(0, Number(e.target.value)))} />
+                  <small>Custom design work is $1 per hour. Enter 0 when the customer provides a print-ready model.</small>
+                </div>
                 <div className="estimate-total">
                   <span>Quote before extras</span>
                   <strong>${estimatedPrice.toFixed(2)}</strong>
                 </div>
-                <p className="estimate-formula">$5 setup + ${gramRate.toFixed(2)} × {estimatedGrams}g + $2 × {estimatedHours}h</p>
-                <small>Shipping, sales tax, design work, unusual materials, and customer-requested changes are added separately.</small>
+                <p className="estimate-formula">$5 setup + ${gramRate.toFixed(2)} × {estimatedGrams}g + $2 × {estimatedHours} print hours + $1 × {modelingHours} modeling hours</p>
+                <small>Shipping, sales tax, unusual materials, and later customer-requested changes are added separately.</small>
               </article>
               <article className="panel rate-reference">
                 <h2>Vertex rates</h2>
@@ -558,6 +564,7 @@ export default function Staff() {
                   <span><strong>PLA</strong>$0.15 per gram</span>
                   <span><strong>PETG</strong>$0.25 per gram</span>
                   <span><strong>Machine time</strong>$2 per hour</span>
+                  <span><strong>Modeling work</strong>$1 per hour</span>
                   <span><strong>Setup</strong>$5 per order</span>
                 </div>
                 <p className="demo-note">Recommended minimum order: $10.</p>
