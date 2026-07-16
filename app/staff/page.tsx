@@ -55,6 +55,7 @@ type TeamMember = {
   id: string;
   email: string;
   level: string;
+  employee_roles: string[];
   employee_discount_percent: number;
   active: boolean;
 };
@@ -280,7 +281,7 @@ export default function Staff() {
     setSaved("");
     const { error } = await supabase.rpc("update_vertex_employee", {
       p_employee_id: member.id,
-      p_level: member.level,
+      p_roles: member.employee_roles,
       p_discount: member.employee_discount_percent,
       p_active: member.active,
     });
@@ -509,7 +510,7 @@ export default function Staff() {
                 <thead>
                   <tr>
                     <th>Gmail account</th>
-                    <th>Role</th>
+                    <th>Role slots</th>
                     <th>Discount</th>
                     <th>Access</th>
                     <th></th>
@@ -521,15 +522,23 @@ export default function Staff() {
                   ) : teamMembers.map((member) => (
                     <tr key={member.id}>
                       <td>{member.email}</td>
-                      <td>
-                        <select value={member.level || "handout"} onChange={(e) => changeTeamMember(member.id, { level: e.target.value })}>
-                          <option value="handout">Handout</option>
-                          <option value="order_taker">Order Taker</option>
-                          <option value="modeler">Modeler</option>
-                          <option value="printer">Printer</option>
-                          <option value="social_management">Social Management</option>
-                        </select>
-                      </td>
+                      <td><div className="role-slots">
+                        {Array.from({ length: 5 }, (_, slot) => (
+                          <select key={slot} aria-label={`Role slot ${slot + 1}`} value={member.employee_roles?.[slot] || ""} onChange={(e) => {
+                            const roles = [...(member.employee_roles || [])];
+                            if (e.target.value) roles[slot] = e.target.value;
+                            else roles.splice(slot, 1);
+                            changeTeamMember(member.id, { employee_roles: [...new Set(roles.filter(Boolean))] });
+                          }}>
+                            <option value="">Blank</option>
+                            <option value="handout">Handout</option>
+                            <option value="order_taker">Order Taker</option>
+                            <option value="modeler">Modeler</option>
+                            <option value="printer">Printer</option>
+                            <option value="social_management">Social Management</option>
+                          </select>
+                        ))}
+                      </div></td>
                       <td><input className="table-number" type="number" min="0" max="100" value={member.employee_discount_percent} onChange={(e) => changeTeamMember(member.id, { employee_discount_percent: Number(e.target.value) })} />%</td>
                       <td><label className="access-toggle"><input type="checkbox" checked={member.active} onChange={(e) => changeTeamMember(member.id, { active: e.target.checked })} /> Active</label></td>
                       <td><button className="btn btn-dark table-save" onClick={() => saveTeamMember(member)}>Save</button></td>
