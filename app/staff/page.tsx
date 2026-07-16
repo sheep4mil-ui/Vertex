@@ -35,11 +35,10 @@ type Order = {
 export default function Staff() {
   const [logged, setLogged] = useState(false);
   const [role, setRole] = useState<"employee" | "admin">("employee");
-  const [codeSent, setCodeSent] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("Orders");
   const [saved, setSaved] = useState("");
   const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState("");
+  const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -71,7 +70,7 @@ export default function Staff() {
     setLogged(true);
     return true;
   }
-  async function sendCode(e: React.FormEvent) {
+  async function signIn(e: React.FormEvent) {
     e.preventDefault();
     setAuthBusy(true);
     setAuthError("");
@@ -81,30 +80,12 @@ export default function Staff() {
       setAuthBusy(false);
       return;
     }
-    const { error } = await supabase.auth.signInWithOtp({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
-      options: { shouldCreateUser: true },
-    });
-    if (error) setAuthError(error.message);
-    else setCodeSent(true);
-    setAuthBusy(false);
-  }
-  async function verifyCode(e: React.FormEvent) {
-    e.preventDefault();
-    setAuthBusy(true);
-    setAuthError("");
-    const supabase = getSupabase();
-    if (!supabase) {
-      setAuthBusy(false);
-      return;
-    }
-    const { data, error } = await supabase.auth.verifyOtp({
-      email,
-      token: otp,
-      type: "email",
+      password,
     });
     if (error || !data.user)
-      setAuthError(error?.message || "The code was not accepted.");
+      setAuthError(error?.message || "The email or password was not accepted.");
     else await finishLogin(data.user.id);
     setAuthBusy(false);
   }
@@ -121,8 +102,7 @@ export default function Staff() {
     await supabase?.auth.signOut();
     setLogged(false);
     setOrders([]);
-    setOtp("");
-    setCodeSent(false);
+    setPassword("");
     setActiveTab("Orders");
   }
 
@@ -134,60 +114,39 @@ export default function Staff() {
             <span className="mark">V</span>Vertex
           </a>
           <h1>Team sign in</h1>
-          <p>
-            Enter an approved Vertex Gmail address. Supabase will email a
-            one-time verification code.
-          </p>
-          {!codeSent ? (
-            <form onSubmit={sendCode}>
+          <p>Sign in with an approved Vertex Gmail address and password.</p>
+          <form onSubmit={signIn}>
               <div className="field">
-                <label>Approved Gmail address</label>
+                <label htmlFor="staff-email">Approved Gmail address</label>
                 <input
+                  id="staff-email"
                   type="email"
+                  autoComplete="username"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@gmail.com"
                 />
               </div>
-              {authError && <div className="form-error">{authError}</div>}
-              <button className="btn btn-dark" disabled={authBusy}>
-                {authBusy ? "Sending…" : "Email my sign-in code"}{" "}
-                <ArrowRight size={16} />
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={verifyCode}>
-              <div className="success">
-                A one-time code was sent to {email}.
-              </div>
               <div className="field">
-                <label>Email verification code</label>
+                <label htmlFor="staff-password">Password</label>
                 <input
-                  inputMode="numeric"
+                  id="staff-password"
+                  type="password"
+                  autoComplete="current-password"
                   required
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  placeholder="Enter the code"
+                  minLength={8}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
                 />
               </div>
               {authError && <div className="form-error">{authError}</div>}
               <button className="btn btn-dark" disabled={authBusy}>
-                {authBusy ? "Verifying…" : "Verify and sign in"}
+                {authBusy ? "Signing in…" : "Sign in"}
+                <ArrowRight size={16} />
               </button>
-              <button
-                type="button"
-                className="text-button"
-                onClick={() => {
-                  setCodeSent(false);
-                  setOtp("");
-                  setAuthError("");
-                }}
-              >
-                Use another email
-              </button>
-            </form>
-          )}
+          </form>
         </div>
       </main>
     );
