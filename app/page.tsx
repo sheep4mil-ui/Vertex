@@ -12,11 +12,6 @@ import { getSupabase } from "@/lib/supabase";
 export default function Home() {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
-  const [priceMaterial, setPriceMaterial] = useState<"PLA" | "PETG">("PLA");
-  const [estimatedGrams, setEstimatedGrams] = useState(100);
-  const [estimatedHours, setEstimatedHours] = useState(5);
-  const gramRate = priceMaterial === "PLA" ? 0.15 : 0.25;
-  const estimatedPrice = 5 + estimatedGrams * gramRate + estimatedHours * 2;
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSending(true);
@@ -57,7 +52,6 @@ export default function Home() {
         </a>
         <nav className="navlinks">
           <a href="#process">How it works</a>
-          <a href="#pricing">Pricing</a>
           <a href="#order">Order</a>
           <a href="staff">Staff</a>
           <a className="btn btn-dark" href="#order">
@@ -136,50 +130,6 @@ export default function Home() {
                 </p>
               </article>
             </div>
-          </div>
-        </section>
-        <section id="pricing" className="pricing-section">
-          <div className="shell price-grid">
-            <div>
-              <p className="eyebrow">Instant estimate</p>
-              <h2>Plan your print price.</h2>
-              <p className="lead price-lead">
-                Enter the total filament weight and estimated printing time from your slicer.
-              </p>
-              <div className="rate-cards">
-                <span><strong>PLA</strong>$0.15 per gram</span>
-                <span><strong>PETG</strong>$0.25 per gram</span>
-                <span><strong>Machine time</strong>$2 per hour</span>
-                <span><strong>Setup</strong>$5 per order</span>
-              </div>
-            </div>
-            <article className="price-calculator">
-              <div className="field">
-                <label htmlFor="price-material">Material</label>
-                <select id="price-material" value={priceMaterial} onChange={(e) => setPriceMaterial(e.target.value as "PLA" | "PETG")}>
-                  <option value="PLA">PLA — $0.15/g</option>
-                  <option value="PETG">PETG — $0.25/g</option>
-                </select>
-              </div>
-              <div className="grid2">
-                <div className="field">
-                  <label htmlFor="price-grams">Total grams</label>
-                  <input id="price-grams" type="number" min="1" max="10000" value={estimatedGrams} onChange={(e) => setEstimatedGrams(Math.max(0, Number(e.target.value)))} />
-                </div>
-                <div className="field">
-                  <label htmlFor="price-hours">Print hours</label>
-                  <input id="price-hours" type="number" min="0" max="1000" step="0.25" value={estimatedHours} onChange={(e) => setEstimatedHours(Math.max(0, Number(e.target.value)))} />
-                </div>
-              </div>
-              <div className="estimate-total">
-                <span>Estimated print price</span>
-                <strong>${estimatedPrice.toFixed(2)}</strong>
-              </div>
-              <p className="estimate-formula">
-                $5 setup + ${gramRate.toFixed(2)} × {estimatedGrams}g + $2 × {estimatedHours}h
-              </p>
-              <small>Estimate only. Shipping, tax, design work, unusual materials, and requested changes may cost extra. Your final quote must be approved before printing.</small>
-            </article>
           </div>
         </section>
         <section id="order" className="shell section">
