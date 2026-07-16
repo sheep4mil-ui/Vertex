@@ -35,7 +35,7 @@ GitHub Pages hosts the frontend. Secure order storage and admin access use Supab
 
 - Replace the staff demo with Supabase Auth and server-enforced `customer`, `employee`, and `admin` roles.
 - Require admin approval before an employee account is activated.
-- Keep the 2–3 administrator email addresses in a server-only allowlist. Staff may be promoted from Employee to Lead to Manager, but never to Administrator.
+- Keep the 2–3 administrator email addresses in a server-only allowlist. Staff may be promoted from Handout to Order Taker to Printer to Social Management, but never to Administrator.
 - Store only a strong hash of the private administrator code; never place the real code in browser code or GitHub.
 - Employees sign in with emailed one-time codes and receive the configured discount only after their employee record is verified.
 - Give every employee one approved Gmail address. Use it for one-time sign-in codes, assignments, and team announcements; never store employee Gmail passwords.
