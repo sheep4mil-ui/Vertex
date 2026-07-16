@@ -1,5 +1,5 @@
 -- Run in the Supabase SQL editor after a parent-managed project is created.
-create type public.staff_level as enum ('handout', 'order_taker', 'printer', 'social_management', 'admin');
+create type public.staff_level as enum ('handout', 'order_taker', 'modeler', 'printer', 'social_management', 'admin');
 create type public.order_status as enum ('requested', 'quoted', 'approved', 'printing', 'ready', 'shipped', 'completed', 'cancelled');
 
 create table public.profiles (
