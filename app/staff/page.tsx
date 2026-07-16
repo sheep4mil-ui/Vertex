@@ -4,6 +4,7 @@ import {
   ArrowRight,
   CalendarDays,
   Mail,
+  MessageSquare,
   Settings,
   Tags,
   Users,
@@ -11,16 +12,17 @@ import {
 import { getSupabase } from "@/lib/supabase";
 
 type Tab =
-  "Orders" | "Customers" | "Team" | "Discounts" | "Email Center" | "Settings";
+  "Orders" | "Customers" | "Team" | "Discounts" | "Messages" | "Email Center" | "Settings";
 const adminTabs: Tab[] = [
   "Orders",
   "Customers",
   "Team",
   "Discounts",
+  "Messages",
   "Email Center",
   "Settings",
 ];
-const employeeTabs: Tab[] = ["Orders", "Email Center", "Settings"];
+const employeeTabs: Tab[] = ["Orders", "Messages", "Email Center", "Settings"];
 type Order = {
   id: string;
   tracking_code: string;
@@ -36,6 +38,17 @@ type Announcement = {
   subject: string;
   message: string;
   created_at: string;
+};
+type DirectoryMember = { id: string; email: string; level: string };
+type StaffMessage = {
+  message_id: string;
+  direction: "inbox" | "sent";
+  sender_email: string;
+  recipient_emails: string[];
+  subject: string;
+  body: string;
+  created_at: string;
+  read_at: string | null;
 };
 
 export default function Staff() {
@@ -57,6 +70,12 @@ export default function Staff() {
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
   const [announcementSubject, setAnnouncementSubject] = useState("");
   const [announcementMessage, setAnnouncementMessage] = useState("");
+  const [directory, setDirectory] = useState<DirectoryMember[]>([]);
+  const [messages, setMessages] = useState<StaffMessage[]>([]);
+  const [messageRecipients, setMessageRecipients] = useState<string[]>([]);
+  const [messageSubject, setMessageSubject] = useState("");
+  const [messageBody, setMessageBody] = useState("");
+  const [selectedMessage, setSelectedMessage] = useState<StaffMessage | null>(null);
 
   async function finishLogin(userId: string) {
     const supabase = getSupabase();
@@ -88,6 +107,12 @@ export default function Staff() {
       .order("created_at", { ascending: false })
       .limit(10);
     setAnnouncements((announcementData || []) as Announcement[]);
+    const [{ data: directoryData }, { data: messageData }] = await Promise.all([
+      supabase.rpc("staff_directory"),
+      supabase.rpc("get_staff_messages"),
+    ]);
+    setDirectory((directoryData || []) as DirectoryMember[]);
+    setMessages((messageData || []) as StaffMessage[]);
     setLogged(true);
     return true;
   }
@@ -193,6 +218,35 @@ export default function Staff() {
     }
   }
 
+  async function sendStaffMessage(e: React.FormEvent) {
+    e.preventDefault();
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const { error } = await supabase.rpc("send_staff_message", {
+      p_recipient_ids: messageRecipients,
+      p_subject: messageSubject,
+      p_body: messageBody,
+    });
+    if (error) setSaved(`Message error: ${error.message}`);
+    else {
+      const { data } = await supabase.rpc("get_staff_messages");
+      setMessages((data || []) as StaffMessage[]);
+      setMessageRecipients([]);
+      setMessageSubject("");
+      setMessageBody("");
+      setSaved("Private message");
+    }
+  }
+
+  async function openStaffMessage(message: StaffMessage) {
+    setSelectedMessage(message);
+    if (message.direction === "inbox" && !message.read_at) {
+      const supabase = getSupabase();
+      await supabase?.rpc("mark_staff_message_read", { p_message_id: message.message_id });
+      setMessages((current) => current.map((item) => item.message_id === message.message_id ? { ...item, read_at: new Date().toISOString() } : item));
+    }
+  }
+
   if (!logged)
     return (
       <main className="login">
@@ -278,6 +332,11 @@ export default function Staff() {
               <h1>{activeTab}</h1>
             </div>
             <div className="top-actions">
+              {messages.some((message) => message.direction === "inbox" && !message.read_at) && (
+                <button className="announcement-alert" onClick={() => setActiveTab("Messages")}>
+                  <MessageSquare size={16} /> {messages.filter((message) => message.direction === "inbox" && !message.read_at).length} private
+                </button>
+              )}
               {announcements.length > 0 && (
                 <button className="announcement-alert" onClick={() => setSelectedAnnouncement(announcements[0])}>
                   <Mail size={16} /> {announcements.length} company message{announcements.length === 1 ? "" : "s"}
@@ -294,6 +353,18 @@ export default function Staff() {
                 <p>{selectedAnnouncement.message}</p>
                 <small>{new Date(selectedAnnouncement.created_at).toLocaleString()}</small>
                 <button className="btn btn-dark" onClick={() => setSelectedAnnouncement(null)}>Close</button>
+              </article>
+            </div>
+          )}
+          {selectedMessage && (
+            <div className="announcement-overlay" onClick={() => setSelectedMessage(null)}>
+              <article className="announcement-modal" onClick={(e) => e.stopPropagation()}>
+                <p className="eyebrow">Private Vertex message</p>
+                <h2>{selectedMessage.subject}</h2>
+                <small>{selectedMessage.direction === "sent" ? `To: ${selectedMessage.recipient_emails.join(", ")}` : `From: ${selectedMessage.sender_email}`}</small>
+                <p>{selectedMessage.body}</p>
+                <small>{new Date(selectedMessage.created_at).toLocaleString()}</small>
+                <button className="btn btn-dark" onClick={() => setSelectedMessage(null)}>Close</button>
               </article>
             </div>
           )}
@@ -550,6 +621,49 @@ export default function Staff() {
                   {saved === "Promo code" && notice}
                   <button className="btn btn-dark">Create promo code</button>
                 </form>
+              </article>
+            </div>
+          )}
+          {activeTab === "Messages" && (
+            <div className="message-center">
+              <article className="panel">
+                <span className="panel-icon"><MessageSquare size={22} /></span>
+                <h2>New private message</h2>
+                <p className="panel-copy">Messages stay inside Vertex and are addressed to approved staff Gmail accounts.</p>
+                <form onSubmit={sendStaffMessage}>
+                  <fieldset className="recipient-picker">
+                    <legend>Send to one or more people</legend>
+                    {directory.length === 0 ? <p>No other staff profiles are available.</p> : directory.map((member) => (
+                      <label key={member.id}>
+                        <input type="checkbox" checked={messageRecipients.includes(member.id)} onChange={(e) => setMessageRecipients((current) => e.target.checked ? [...current, member.id] : current.filter((id) => id !== member.id))} />
+                        <span><strong>{member.email}</strong><small>{member.level.replaceAll("_", " ")}</small></span>
+                      </label>
+                    ))}
+                  </fieldset>
+                  <div className="field">
+                    <label htmlFor="message-subject">Subject</label>
+                    <input id="message-subject" required value={messageSubject} onChange={(e) => setMessageSubject(e.target.value)} placeholder="Message subject" />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="message-body">Message</label>
+                    <textarea id="message-body" required value={messageBody} onChange={(e) => setMessageBody(e.target.value)} placeholder="Write a private staff message." />
+                  </div>
+                  {saved.startsWith("Message error") && <div className="form-error">{saved}</div>}
+                  {saved === "Private message" && notice}
+                  <button className="btn btn-dark" disabled={messageRecipients.length === 0}>Send private message</button>
+                </form>
+              </article>
+              <article className="panel">
+                <h2>Inbox and sent messages</h2>
+                <div className="message-list">
+                  {messages.length === 0 ? <p className="panel-copy">No private messages yet.</p> : messages.map((message) => (
+                    <button key={`${message.direction}-${message.message_id}`} className={!message.read_at && message.direction === "inbox" ? "unread" : ""} onClick={() => openStaffMessage(message)}>
+                      <span>{message.direction === "sent" ? `To: ${message.recipient_emails.join(", ")}` : `From: ${message.sender_email}`}</span>
+                      <strong>{message.subject}</strong>
+                      <small>{new Date(message.created_at).toLocaleDateString()}</small>
+                    </button>
+                  ))}
+                </div>
               </article>
             </div>
           )}
