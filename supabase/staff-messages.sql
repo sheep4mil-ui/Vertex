@@ -69,3 +69,20 @@ revoke all on function public.get_staff_messages() from public;
 revoke all on function public.mark_staff_message_read(uuid) from public;
 grant execute on function public.staff_directory(), public.get_staff_messages(), public.mark_staff_message_read(uuid) to authenticated;
 grant execute on function public.send_staff_message(uuid[],text,text) to authenticated;
+
+-- Delete private staff messages after 48 hours. Recipient rows are removed
+-- automatically by the foreign key's ON DELETE CASCADE rule.
+create extension if not exists pg_cron with schema extensions;
+do $$
+declare existing_job bigint;
+begin
+  for existing_job in select jobid from cron.job where jobname='delete-old-vertex-staff-messages'
+  loop
+    perform cron.unschedule(existing_job);
+  end loop;
+end $$;
+select cron.schedule(
+  'delete-old-vertex-staff-messages',
+  '15 * * * *',
+  $cleanup$delete from public.staff_messages where created_at < now() - interval '2 days';$cleanup$
+);
