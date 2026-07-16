@@ -31,6 +31,12 @@ type Order = {
   update_preference: string;
   created_at: string;
 };
+type Announcement = {
+  id: string;
+  subject: string;
+  message: string;
+  created_at: string;
+};
 
 export default function Staff() {
   const [logged, setLogged] = useState(false);
@@ -47,6 +53,10 @@ export default function Staff() {
   const [customerName, setCustomerName] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
   const [emailDetails, setEmailDetails] = useState("");
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
+  const [announcementSubject, setAnnouncementSubject] = useState("");
+  const [announcementMessage, setAnnouncementMessage] = useState("");
 
   async function finishLogin(userId: string) {
     const supabase = getSupabase();
@@ -72,6 +82,12 @@ export default function Staff() {
       .order("created_at", { ascending: false });
     const { data } = await query;
     setOrders((data || []) as Order[]);
+    const { data: announcementData } = await supabase
+      .from("announcements")
+      .select("id,subject,message,created_at")
+      .order("created_at", { ascending: false })
+      .limit(10);
+    setAnnouncements((announcementData || []) as Announcement[]);
     setLogged(true);
     return true;
   }
@@ -159,6 +175,24 @@ export default function Staff() {
     window.open(url, "_blank", "noopener,noreferrer");
   }
 
+  async function publishAnnouncement(e: React.FormEvent) {
+    e.preventDefault();
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const { data, error } = await supabase
+      .from("announcements")
+      .insert({ subject: announcementSubject.trim(), message: announcementMessage.trim() })
+      .select("id,subject,message,created_at")
+      .single();
+    if (error) setSaved(`Announcement error: ${error.message}`);
+    else {
+      setAnnouncements((current) => [data as Announcement, ...current]);
+      setAnnouncementSubject("");
+      setAnnouncementMessage("");
+      setSaved("Company announcement");
+    }
+  }
+
   if (!logged)
     return (
       <main className="login">
@@ -243,8 +277,26 @@ export default function Staff() {
               </p>
               <h1>{activeTab}</h1>
             </div>
-            <button className="btn btn-dark" onClick={signOut}>Sign out</button>
+            <div className="top-actions">
+              {announcements.length > 0 && (
+                <button className="announcement-alert" onClick={() => setSelectedAnnouncement(announcements[0])}>
+                  <Mail size={16} /> {announcements.length} company message{announcements.length === 1 ? "" : "s"}
+                </button>
+              )}
+              <button className="btn btn-dark" onClick={signOut}>Sign out</button>
+            </div>
           </header>
+          {selectedAnnouncement && (
+            <div className="announcement-overlay" onClick={() => setSelectedAnnouncement(null)}>
+              <article className="announcement-modal" onClick={(e) => e.stopPropagation()}>
+                <p className="eyebrow">Vertex company announcement</p>
+                <h2>{selectedAnnouncement.subject}</h2>
+                <p>{selectedAnnouncement.message}</p>
+                <small>{new Date(selectedAnnouncement.created_at).toLocaleString()}</small>
+                <button className="btn btn-dark" onClick={() => setSelectedAnnouncement(null)}>Close</button>
+              </article>
+            </div>
+          )}
           {activeTab === "Orders" && (
             <>
               <div className="stats">
@@ -503,6 +555,26 @@ export default function Staff() {
           )}
           {activeTab === "Email Center" && (
             <div className="email-center">
+              {role === "admin" && (
+                <article className="panel announcement-publisher">
+                  <span className="panel-icon"><Mail size={22} /></span>
+                  <h2>Company announcement</h2>
+                  <p className="panel-copy">Publish an internal message that appears on every employee and administrator dashboard.</p>
+                  <form onSubmit={publishAnnouncement}>
+                    <div className="field">
+                      <label htmlFor="announcement-subject">Subject</label>
+                      <input id="announcement-subject" required value={announcementSubject} onChange={(e) => setAnnouncementSubject(e.target.value)} placeholder="Vertex team update" />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="announcement-message">Message</label>
+                      <textarea id="announcement-message" required value={announcementMessage} onChange={(e) => setAnnouncementMessage(e.target.value)} placeholder="Write the company announcement." />
+                    </div>
+                    {saved.startsWith("Announcement error") && <div className="form-error">{saved}</div>}
+                    {saved === "Company announcement" && notice}
+                    <button className="btn btn-dark">Publish announcement</button>
+                  </form>
+                </article>
+              )}
               <article className="panel">
                 <span className="panel-icon"><Mail size={22} /></span>
                 <h2>Vertex Email Center</h2>
