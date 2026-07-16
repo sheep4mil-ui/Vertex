@@ -29,7 +29,7 @@ Copy `.env.example` to `.env.local` and provide secrets only there. Never commit
 3. Push this project and import it into Vercel.
 4. Add the purchased domain in Vercel, then copy Vercel's DNS records to the domain registrar.
 
-GitHub Pages is not used because secure accounts, file uploads, Gmail, and SMS require server-side code.
+GitHub Pages hosts the frontend. Secure order storage and admin access use Supabase as the web backend; Pages alone never stores private data or secret codes.
 
 ## Safety checklist before launch
 
