@@ -55,6 +55,7 @@ type StaffMessage = {
 export default function Staff() {
   const [logged, setLogged] = useState(false);
   const [role, setRole] = useState<"employee" | "admin">("employee");
+  const [staffLevel, setStaffLevel] = useState("handout");
   const [activeTab, setActiveTab] = useState<Tab>("Orders");
   const [saved, setSaved] = useState("");
   const [email, setEmail] = useState("");
@@ -100,6 +101,7 @@ export default function Staff() {
       return false;
     }
     setRole(profile.level === "admin" ? "admin" : "employee");
+    setStaffLevel(profile.level);
     const query = supabase
       .from("orders")
       .select(
@@ -497,6 +499,7 @@ export default function Staff() {
                         <select defaultValue="handout">
                           <option value="handout">Handout</option>
                           <option value="order_taker">Order Taker</option>
+                          <option value="modeler">Modeler</option>
                           <option value="printer">Printer</option>
                           <option value="social_management">
                             Social Management
@@ -516,6 +519,8 @@ export default function Staff() {
                 <span>Handout</span>
                 <b>→</b>
                 <span>Order Taker</span>
+                <b>→</b>
+                <span>Modeler</span>
                 <b>→</b>
                 <span>Printer</span>
                 <b>→</b>
@@ -830,7 +835,7 @@ export default function Staff() {
                   <p>
                     <strong>Role</strong>
                     <br />
-                    Handout
+                    {staffLevel.replaceAll("_", " ")}
                   </p>
                   <p>
                     <strong>Personal discount</strong>

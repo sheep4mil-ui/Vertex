@@ -24,7 +24,7 @@ create policy "role-aware staff read orders" on public.orders for select to auth
 using (
   public.current_vertex_staff_level() in ('admin','order_taker','social_management')
   or (
-    public.current_vertex_staff_level() in ('handout','printer')
+    public.current_vertex_staff_level() in ('handout','modeler','printer')
     and assigned_to = auth.uid()
   )
 );
@@ -33,9 +33,9 @@ drop policy if exists "senior staff update orders" on public.orders;
 create policy "role-aware staff update orders" on public.orders for update to authenticated
 using (
   public.current_vertex_staff_level() in ('admin','order_taker','social_management')
-  or (public.current_vertex_staff_level() = 'printer' and assigned_to = auth.uid())
+  or (public.current_vertex_staff_level() in ('modeler','printer') and assigned_to = auth.uid())
 )
 with check (
   public.current_vertex_staff_level() in ('admin','order_taker','social_management')
-  or (public.current_vertex_staff_level() = 'printer' and assigned_to = auth.uid())
+  or (public.current_vertex_staff_level() in ('modeler','printer') and assigned_to = auth.uid())
 );
