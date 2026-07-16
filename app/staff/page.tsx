@@ -51,6 +51,13 @@ type StaffMessage = {
   created_at: string;
   read_at: string | null;
 };
+type TeamMember = {
+  id: string;
+  email: string;
+  level: string;
+  employee_discount_percent: number;
+  active: boolean;
+};
 
 export default function Staff() {
   const [logged, setLogged] = useState(false);
@@ -78,6 +85,7 @@ export default function Staff() {
   const [messageSubject, setMessageSubject] = useState("");
   const [messageBody, setMessageBody] = useState("");
   const [selectedMessage, setSelectedMessage] = useState<StaffMessage | null>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [priceMaterial, setPriceMaterial] = useState<"PLA" | "PETG">("PLA");
   const [estimatedGrams, setEstimatedGrams] = useState(100);
   const [estimatedHours, setEstimatedHours] = useState(5);
@@ -122,6 +130,10 @@ export default function Staff() {
     ]);
     setDirectory((directoryData || []) as DirectoryMember[]);
     setMessages((messageData || []) as StaffMessage[]);
+    if (profile.level === "admin") {
+      const { data: teamData } = await supabase.rpc("get_vertex_team");
+      setTeamMembers((teamData || []) as TeamMember[]);
+    }
     setLogged(true);
     return true;
   }
@@ -254,6 +266,25 @@ export default function Staff() {
       await supabase?.rpc("mark_staff_message_read", { p_message_id: message.message_id });
       setMessages((current) => current.map((item) => item.message_id === message.message_id ? { ...item, read_at: new Date().toISOString() } : item));
     }
+  }
+
+  function changeTeamMember(id: string, changes: Partial<TeamMember>) {
+    setTeamMembers((current) =>
+      current.map((member) => member.id === id ? { ...member, ...changes } : member),
+    );
+  }
+
+  async function saveTeamMember(member: TeamMember) {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    setSaved("");
+    const { error } = await supabase.rpc("update_vertex_employee", {
+      p_employee_id: member.id,
+      p_level: member.level,
+      p_discount: member.employee_discount_percent,
+      p_active: member.active,
+    });
+    setSaved(error ? `Team error: ${error.message}` : `Employee ${member.email}`);
   }
 
   if (!logged)
@@ -472,49 +503,40 @@ export default function Staff() {
                 Promote employees through Vertex roles. Administrator membership
                 remains separate.
               </p>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setSaved("Employee promotion");
-                }}
-              >
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Gmail</th>
-                      <th>Current role</th>
-                      <th>Promote to</th>
-                      <th>Discount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>Demo Employee</td>
-                      <td>employee@gmail.com</td>
+              {saved.startsWith("Team error") && <div className="form-error">{saved}</div>}
+              {saved.startsWith("Employee ") && <div className="success">{saved} saved.</div>}
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Gmail account</th>
+                    <th>Role</th>
+                    <th>Discount</th>
+                    <th>Access</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {teamMembers.length === 0 ? (
+                    <tr><td colSpan={5}>No employee profiles found. Run team-management.sql if employees should appear here.</td></tr>
+                  ) : teamMembers.map((member) => (
+                    <tr key={member.id}>
+                      <td>{member.email}</td>
                       <td>
-                        <span className="role-badge">Handout</span>
-                      </td>
-                      <td>
-                        <select defaultValue="handout">
+                        <select value={member.level || "handout"} onChange={(e) => changeTeamMember(member.id, { level: e.target.value })}>
                           <option value="handout">Handout</option>
                           <option value="order_taker">Order Taker</option>
                           <option value="modeler">Modeler</option>
                           <option value="printer">Printer</option>
-                          <option value="social_management">
-                            Social Management
-                          </option>
+                          <option value="social_management">Social Management</option>
                         </select>
                       </td>
-                      <td>15%</td>
+                      <td><input className="table-number" type="number" min="0" max="100" value={member.employee_discount_percent} onChange={(e) => changeTeamMember(member.id, { employee_discount_percent: Number(e.target.value) })} />%</td>
+                      <td><label className="access-toggle"><input type="checkbox" checked={member.active} onChange={(e) => changeTeamMember(member.id, { active: e.target.checked })} /> Active</label></td>
+                      <td><button className="btn btn-dark table-save" onClick={() => saveTeamMember(member)}>Save</button></td>
                     </tr>
-                  </tbody>
-                </table>
-                {saved === "Employee promotion" && notice}
-                <button className="btn btn-dark team-save">
-                  Save employee role
-                </button>
-              </form>
+                  ))}
+                </tbody>
+              </table>
               <div className="promotion-path">
                 <span>Handout</span>
                 <b>→</b>
