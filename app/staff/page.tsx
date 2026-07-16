@@ -12,17 +12,18 @@ import {
 import { getSupabase } from "@/lib/supabase";
 
 type Tab =
-  "Orders" | "Customers" | "Team" | "Discounts" | "Messages" | "Email Center" | "Settings";
+  "Orders" | "Customers" | "Team" | "Pricing" | "Discounts" | "Messages" | "Email Center" | "Settings";
 const adminTabs: Tab[] = [
   "Orders",
   "Customers",
   "Team",
+  "Pricing",
   "Discounts",
   "Messages",
   "Email Center",
   "Settings",
 ];
-const employeeTabs: Tab[] = ["Orders", "Messages", "Email Center", "Settings"];
+const employeeTabs: Tab[] = ["Orders", "Pricing", "Messages", "Email Center", "Settings"];
 type Order = {
   id: string;
   tracking_code: string;
@@ -76,6 +77,11 @@ export default function Staff() {
   const [messageSubject, setMessageSubject] = useState("");
   const [messageBody, setMessageBody] = useState("");
   const [selectedMessage, setSelectedMessage] = useState<StaffMessage | null>(null);
+  const [priceMaterial, setPriceMaterial] = useState<"PLA" | "PETG">("PLA");
+  const [estimatedGrams, setEstimatedGrams] = useState(100);
+  const [estimatedHours, setEstimatedHours] = useState(5);
+  const gramRate = priceMaterial === "PLA" ? 0.15 : 0.25;
+  const estimatedPrice = 5 + estimatedGrams * gramRate + estimatedHours * 2;
 
   async function finishLogin(userId: string) {
     const supabase = getSupabase();
@@ -515,6 +521,48 @@ export default function Staff() {
                 <span>Social Management</span>
               </div>
             </article>
+          )}
+          {activeTab === "Pricing" && (
+            <div className="admin-pricing">
+              <article className="panel">
+                <p className="eyebrow">Staff quote tool</p>
+                <h2>Print price calculator</h2>
+                <p className="panel-copy">Enter the slicer&rsquo;s total filament weight and estimated print time.</p>
+                <div className="field">
+                  <label htmlFor="admin-price-material">Material</label>
+                  <select id="admin-price-material" value={priceMaterial} onChange={(e) => setPriceMaterial(e.target.value as "PLA" | "PETG")}>
+                    <option value="PLA">PLA — $0.15 per gram</option>
+                    <option value="PETG">PETG — $0.25 per gram</option>
+                  </select>
+                </div>
+                <div className="grid2">
+                  <div className="field">
+                    <label htmlFor="admin-price-grams">Total grams</label>
+                    <input id="admin-price-grams" type="number" min="1" max="10000" value={estimatedGrams} onChange={(e) => setEstimatedGrams(Math.max(0, Number(e.target.value)))} />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="admin-price-hours">Print hours</label>
+                    <input id="admin-price-hours" type="number" min="0" max="1000" step="0.25" value={estimatedHours} onChange={(e) => setEstimatedHours(Math.max(0, Number(e.target.value)))} />
+                  </div>
+                </div>
+                <div className="estimate-total">
+                  <span>Quote before extras</span>
+                  <strong>${estimatedPrice.toFixed(2)}</strong>
+                </div>
+                <p className="estimate-formula">$5 setup + ${gramRate.toFixed(2)} × {estimatedGrams}g + $2 × {estimatedHours}h</p>
+                <small>Shipping, sales tax, design work, unusual materials, and customer-requested changes are added separately.</small>
+              </article>
+              <article className="panel rate-reference">
+                <h2>Vertex rates</h2>
+                <div className="rate-cards">
+                  <span><strong>PLA</strong>$0.15 per gram</span>
+                  <span><strong>PETG</strong>$0.25 per gram</span>
+                  <span><strong>Machine time</strong>$2 per hour</span>
+                  <span><strong>Setup</strong>$5 per order</span>
+                </div>
+                <p className="demo-note">Recommended minimum order: $10.</p>
+              </article>
+            </div>
           )}
           {activeTab === "Discounts" && role === "admin" && (
             <div className="panel-stack">
