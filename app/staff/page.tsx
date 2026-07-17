@@ -125,6 +125,40 @@ export default function Staff() {
   const totalTeamPayments = paymentRows.reduce((sum, row) => sum + row.count * row.baseAmount * revenueMultiplier, 0);
   const moneyRemaining = monthlyRevenue - expenseReserve - totalTeamPayments;
 
+  async function refreshOrders() {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const { data } = await supabase.from("orders").select("id,tracking_code,customer_name,customer_email,customer_phone,shipping_address,material,quantity,details,model_url,status,assigned_to,quoted_cents,update_preference,created_at").not("status", "in", "(completed,cancelled)").order("created_at", { ascending: false });
+    const latestOrders = (data || []) as Order[];
+    setOrders(latestOrders);
+    setSelectedOrder((current) => current ? latestOrders.find((order) => order.id === current.id) || null : null);
+  }
+
+  async function refreshSharedData() {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    await refreshOrders();
+    const [{ data: announcementData }, { data: directoryData }, { data: messageData }, { data: filamentData }] = await Promise.all([
+      supabase.from("announcements").select("id,subject,message,created_at").order("created_at", { ascending: false }).limit(10),
+      supabase.rpc("staff_directory"),
+      supabase.rpc("get_staff_messages"),
+      supabase.from("filament_inventory").select("id,material,color,spool_count,grams_available,in_stock,notes").order("material").order("color"),
+    ]);
+    setAnnouncements((announcementData || []) as Announcement[]);
+    setDirectory((directoryData || []) as DirectoryMember[]);
+    setMessages((messageData || []) as StaffMessage[]);
+    setFilaments((filamentData || []) as Filament[]);
+    if (role === "admin") {
+      const [{ data: teamData }, { data: payrollData }] = await Promise.all([supabase.rpc("get_vertex_team"), supabase.rpc("get_vertex_payroll_plan")]);
+      setTeamMembers((teamData || []) as TeamMember[]);
+      const payroll = Array.isArray(payrollData) ? payrollData[0] : payrollData;
+      if (payroll) {
+        setMonthlyRevenue(Number(payroll.monthly_revenue));
+        setPaymentRows((rows) => rows.map((row) => ({ ...row, count: Number(payroll[`${row.role.toLowerCase().replaceAll(" ", "_")}_count`] ?? row.count) })));
+      }
+    }
+  }
+
   async function finishLogin(userId: string) {
     const supabase = getSupabase();
     if (!supabase) return false;
@@ -143,15 +177,7 @@ export default function Staff() {
     setRole(profile.level === "admin" ? "admin" : "employee");
     setStaffLevel(profile.level);
     setStaffRoles(profile.employee_roles || []);
-    const query = supabase
-      .from("orders")
-      .select(
-        "id,tracking_code,customer_name,customer_email,customer_phone,shipping_address,material,quantity,details,model_url,status,assigned_to,quoted_cents,update_preference,created_at",
-      )
-      .not("status", "in", "(completed,cancelled)")
-      .order("created_at", { ascending: false });
-    const { data } = await query;
-    setOrders((data || []) as Order[]);
+    await refreshOrders();
     const { data: announcementData } = await supabase
       .from("announcements")
       .select("id,subject,message,created_at")
@@ -210,6 +236,16 @@ export default function Staff() {
       if (data.user) finishLogin(data.user.id);
     });
   }, []);
+  useEffect(() => {
+    const supabase = getSupabase();
+    if (!supabase || !logged) return;
+    let channel = supabase.channel("vertex-live-dashboard");
+    ["orders", "filament_inventory", "profiles", "vertex_payroll_plan", "announcements", "staff_messages", "staff_message_recipients", "seasonal_discounts", "promo_codes"].forEach((table) => {
+      channel = channel.on("postgres_changes", { event: "*", schema: "public", table }, refreshSharedData);
+    });
+    channel.subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [logged, role]);
 
   async function signOut() {
     const supabase = getSupabase();
