@@ -125,6 +125,7 @@ export default function Staff() {
   const discountedEstimatedPrice = estimatedPrice * (1 - pricingDiscountPercent / 100);
   const [monthlyRevenue, setMonthlyRevenue] = useState(0);
   const [previousMonthRevenue, setPreviousMonthRevenue] = useState(0);
+  const [projectedRevenue, setProjectedRevenue] = useState(205);
   const [paymentRows, setPaymentRows] = useState<PaymentRow[]>([
     { role: "Printer", count: 2, baseAmount: 30 },
     { role: "Handout", count: 0, baseAmount: 10 },
@@ -132,11 +133,11 @@ export default function Staff() {
     { role: "Modeler", count: 0, baseAmount: 25 },
     { role: "Social Management", count: 0, baseAmount: 15 },
   ]);
-  const lowRevenueMonth = monthlyRevenue < 200;
-  const revenueMultiplier = monthlyRevenue / (lowRevenueMonth ? 175 : 205);
+  const lowRevenueMonth = projectedRevenue < 200;
+  const revenueMultiplier = projectedRevenue / (lowRevenueMonth ? 175 : 205);
   const expenseReserve = lowRevenueMonth ? 0 : 30 * revenueMultiplier;
   const totalTeamPayments = paymentRows.reduce((sum, row) => sum + row.count * row.baseAmount * revenueMultiplier, 0);
-  const moneyRemaining = monthlyRevenue - expenseReserve - totalTeamPayments;
+  const moneyRemaining = projectedRevenue - expenseReserve - totalTeamPayments;
 
   async function refreshOrders(assignedUserId: string | null = role === "employee" ? staffUserId : null) {
     const supabase = getSupabase();
@@ -178,6 +179,7 @@ export default function Staff() {
       if (payroll) {
         setMonthlyRevenue(Number(payroll.monthly_revenue));
         setPreviousMonthRevenue(Number(payroll.previous_month_revenue || 0));
+        setProjectedRevenue(Number(payroll.projected_revenue ?? 205));
         setPaymentRows((rows) => rows.map((row) => ({ ...row, count: Number(payroll[`${row.role.toLowerCase().replaceAll(" ", "_")}_count`] ?? row.count) })));
       }
     }
@@ -228,6 +230,7 @@ export default function Staff() {
       if (payroll) {
         setMonthlyRevenue(Number(payroll.monthly_revenue));
         setPreviousMonthRevenue(Number(payroll.previous_month_revenue || 0));
+        setProjectedRevenue(Number(payroll.projected_revenue ?? 205));
         setPaymentRows((rows) => rows.map((row) => ({
           ...row,
           count: Number(payroll[`${row.role.toLowerCase().replaceAll(" ", "_")}_count`] ?? row.count),
@@ -455,7 +458,7 @@ export default function Staff() {
     setSaved("");
     const counts = Object.fromEntries(paymentRows.map((row) => [row.role, row.count]));
     const { error } = await supabase.rpc("save_vertex_payroll_plan", {
-      p_monthly_revenue: monthlyRevenue,
+      p_monthly_revenue: projectedRevenue,
       p_printer_count: counts.Printer || 0,
       p_handout_count: counts.Handout || 0,
       p_order_taker_count: counts["Order Taker"] || 0,
@@ -1005,6 +1008,11 @@ export default function Staff() {
                 <p className="panel-copy">Each role&rsquo;s payment scales automatically. Under $200, the reserve becomes $0 and that money increases role payments. This calculator does not send money.</p>
                 <div className="grid2">
                   <div className="field">
+                    <label htmlFor="projected-revenue">Possible monthly revenue</label>
+                    <input id="projected-revenue" type="number" min="0" step="0.01" value={projectedRevenue} onChange={(e) => setProjectedRevenue(Math.max(0, Number(e.target.value)))} />
+                    <small>Edit this to test possible payroll and reserve amounts.</small>
+                  </div>
+                  <div className="field">
                     <label htmlFor="expense-reserve">Scaled company expense reserve</label>
                     <input id="expense-reserve" type="text" value={`$${expenseReserve.toFixed(2)}`} readOnly />
                   </div>
@@ -1032,7 +1040,7 @@ export default function Staff() {
                 <span className="panel-icon"><DollarSign size={22} /></span>
                 <h2>Monthly summary</h2>
                 <dl>
-                  <div><dt>Revenue</dt><dd>${monthlyRevenue.toFixed(2)}</dd></div>
+                  <div><dt>Possible revenue</dt><dd>${projectedRevenue.toFixed(2)}</dd></div>
                   <div><dt>Company reserve</dt><dd>−${expenseReserve.toFixed(2)}</dd></div>
                   <div><dt>Team payments</dt><dd>−${totalTeamPayments.toFixed(2)}</dd></div>
                   <div className="payment-balance"><dt>Money remaining</dt><dd className={moneyRemaining < 0 ? "negative" : "positive"}>${moneyRemaining.toFixed(2)}</dd></div>

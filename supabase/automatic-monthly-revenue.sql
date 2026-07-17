@@ -6,6 +6,7 @@ create function public.get_vertex_payroll_plan()
 returns table(
   monthly_revenue numeric,
   previous_month_revenue numeric,
+  projected_revenue numeric,
   printer_count integer,
   handout_count integer,
   order_taker_count integer,
@@ -29,6 +30,7 @@ begin
       where f.completed_at >= date_trunc('month', now()) - interval '1 month'
         and f.completed_at < date_trunc('month', now())
     ), 0) / 100.0)::numeric as previous_month_revenue,
+    p.monthly_revenue as projected_revenue,
     p.printer_count,
     p.handout_count,
     p.order_taker_count,
@@ -39,7 +41,7 @@ begin
     on f.completed_at >= date_trunc('month', now()) - interval '1 month'
    and f.completed_at < date_trunc('month', now()) + interval '1 month'
   where p.singleton
-  group by p.printer_count, p.handout_count, p.order_taker_count,
+  group by p.monthly_revenue, p.printer_count, p.handout_count, p.order_taker_count,
            p.modeler_count, p.social_management_count;
 end;
 $$;
