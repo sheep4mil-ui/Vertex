@@ -37,6 +37,34 @@ export default function Home() {
       return;
     }
     const preference = String(values.get("contact") || "email");
+    const specialtyDetails = orderType === "cnc"
+      ? [
+          "Process: CNC machining",
+          `Material: ${String(values.get("specialty_material") || "Not sure")}`,
+          `Finish: ${String(values.get("cnc_finish") || "Not sure")}`,
+          `Dimensions/tolerance: ${String(values.get("cnc_dimensions") || "Not provided")}`,
+        ]
+      : orderType === "pcb_manufacturing"
+        ? [
+            `PCB type: ${String(values.get("pcb_type") || "Not sure")}`,
+            `Material: ${String(values.get("specialty_material") || "Not sure")}`,
+            `Layers: ${String(values.get("pcb_layers") || "Not sure")}`,
+            `Board size: ${String(values.get("pcb_dimensions") || "Not provided")}`,
+            `Copper weight: ${String(values.get("pcb_copper") || "Not sure")}`,
+            `Surface finish: ${String(values.get("pcb_finish") || "Not sure")}`,
+            `Solder mask color: ${String(values.get("pcb_mask") || "Not sure")}`,
+          ]
+        : orderType === "pcb_assembly"
+          ? [
+              `Assembly service: ${String(values.get("assembly_service") || "Not sure")}`,
+              `Assembly side: ${String(values.get("assembly_side") || "Not sure")}`,
+              `Board format: ${String(values.get("board_format") || "Not sure")}`,
+              `Board/component details: ${String(values.get("specialty_material") || "Not provided")}`,
+              `Unique parts: ${String(values.get("unique_parts") || "Not provided")}`,
+              `SMD parts: ${String(values.get("smd_parts") || "Not provided")}`,
+              `Through-hole parts: ${String(values.get("through_hole_parts") || "Not provided")}`,
+            ]
+          : [];
     const orderArguments = {
       p_customer_name: String(values.get("name") || ""),
       p_customer_email: String(values.get("email") || ""),
@@ -48,7 +76,7 @@ export default function Home() {
         : String(values.get("material") || ""),
       p_quantity: Number(values.get("quantity") || 1),
       p_details: orderType !== "printing"
-        ? `[${serviceName.toUpperCase()} REQUEST — UPPER MANAGEMENT REVIEW REQUIRED]\n${String(values.get("custom_description") || "")}`
+        ? `[${serviceName.toUpperCase()} REQUEST — UPPER MANAGEMENT REVIEW REQUIRED]\n${specialtyDetails.join("\n")}\n\nCustomer notes:\n${String(values.get("custom_description") || "")}`
         : String(values.get("custom_description") || ""),
       p_model_url: String(values.get("model_url") || ""),
       p_promo_code: String(values.get("promo_code") || ""),
@@ -207,7 +235,7 @@ export default function Home() {
                 <button type="button" role="tab" aria-selected={orderType === "pcb_manufacturing"} className={orderType === "pcb_manufacturing" ? "active" : ""} onClick={() => setOrderType("pcb_manufacturing")}>PCB Manufacturing</button>
                 <button type="button" role="tab" aria-selected={orderType === "pcb_assembly"} className={orderType === "pcb_assembly" ? "active" : ""} onClick={() => setOrderType("pcb_assembly")}>PCB Assembly</button>
               </div>
-              {orderType !== "printing" && <div className="cnc-review-banner"><strong>{serviceName} request</strong><span>Upper management will review this request and either accept or deny it. Availability is limited and this service costs extra.</span></div>}
+              {orderType !== "printing" && <div className="cnc-review-banner"><strong>{serviceName} request</strong><span>{orderType === "pcb_manufacturing" ? "Vertex will review the design and may order accepted boards or parts from PCBWay or another approved supplier." : orderType === "pcb_assembly" ? "Vertex may order boards and components from PCBWay or another approved supplier, then assemble and inspect the accepted project." : "Vertex completes accepted CNC work using available equipment and materials."} Upper management will accept or deny the request before work begins.</span></div>}
               {message && (
                 <div
                   className={
@@ -269,6 +297,101 @@ export default function Home() {
                   />
                 </div>
               </div>
+              {orderType === "cnc" && <div className="specialty-fields">
+                <div className="grid2">
+                  <div className="field">
+                    <label htmlFor="cnc_finish">Finish</label>
+                    <input id="cnc_finish" name="cnc_finish" placeholder="As-machined, sanded, polished, painted, or not sure" />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="cnc_dimensions">Dimensions and tolerance</label>
+                    <input id="cnc_dimensions" name="cnc_dimensions" placeholder="Example: 100 × 50 × 10 mm, ±0.2 mm" />
+                  </div>
+                </div>
+              </div>}
+              {orderType === "pcb_manufacturing" && <div className="specialty-fields">
+                <div className="grid2">
+                  <div className="field">
+                    <label htmlFor="pcb_type">PCB type</label>
+                    <select id="pcb_type" name="pcb_type" required>
+                      <option value="">Choose a board type</option>
+                      <option>Standard rigid PCB</option>
+                      <option>Flex PCB</option>
+                      <option>Rigid-flex PCB</option>
+                      <option>HDI PCB</option>
+                      <option>Not sure—review my files</option>
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="pcb_layers">Layer count</label>
+                    <select id="pcb_layers" name="pcb_layers">
+                      <option>Not sure</option><option>1</option><option>2</option><option>4</option><option>6</option><option>8+</option>
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="pcb_dimensions">Board dimensions</label>
+                    <input id="pcb_dimensions" name="pcb_dimensions" placeholder="Length × width in mm" />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="pcb_copper">Copper weight</label>
+                    <select id="pcb_copper" name="pcb_copper">
+                      <option>Not sure</option><option>1 oz</option><option>2 oz</option><option>Other</option>
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="pcb_finish">Surface finish</label>
+                    <select id="pcb_finish" name="pcb_finish">
+                      <option>Not sure</option><option>HASL</option><option>Lead-free HASL</option><option>ENIG</option><option>Other</option>
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="pcb_mask">Solder mask color</label>
+                    <input id="pcb_mask" name="pcb_mask" placeholder="Green, black, blue, or other" />
+                  </div>
+                </div>
+              </div>}
+              {orderType === "pcb_assembly" && <div className="specialty-fields">
+                <div className="grid2">
+                  <div className="field">
+                    <label htmlFor="assembly_service">Parts and assembly option</label>
+                    <select id="assembly_service" name="assembly_service" required>
+                      <option value="">Choose an option</option>
+                      <option>Turnkey — Vertex sources available parts</option>
+                      <option>Kitted — customer supplies all parts</option>
+                      <option>Combo — customer and Vertex supply parts</option>
+                      <option>Not sure—review my files</option>
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="assembly_side">Assembly side</label>
+                    <select id="assembly_side" name="assembly_side">
+                      <option>Not sure</option><option>Top side</option><option>Bottom side</option><option>Both sides</option>
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="board_format">Board format</label>
+                    <select id="board_format" name="board_format">
+                      <option>Not sure</option><option>Single boards</option><option>Panelized boards</option>
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="unique_parts">Number of unique parts</label>
+                    <input id="unique_parts" name="unique_parts" type="number" min="0" placeholder="Optional" />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="smd_parts">SMD parts per board</label>
+                    <input id="smd_parts" name="smd_parts" type="number" min="0" placeholder="Optional" />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="through_hole_parts">Through-hole parts per board</label>
+                    <input id="through_hole_parts" name="through_hole_parts" type="number" min="0" placeholder="Optional" />
+                  </div>
+                </div>
+              </div>}
+              {orderType !== "printing" && <div className="supplier-reference">
+                <strong>Vertex pricing is higher than supplier pricing</strong>
+                <span>Supplier advertisements are not the customer&apos;s final price. The Vertex quote may include the supplier order, shipping, parts, assembly labor, setup, inspection or testing, handling, risk, and profit. You will receive the final price and estimated completion date after management reviews the files.</span>
+              </div>}
               {orderType === "printing" && availableFilaments.length > 0 && <div className="available-filaments"><strong>Colors currently in stock</strong><div>{availableFilaments.map((filament) => <span key={`${filament.material}-${filament.color}`}>{filament.material} · {filament.color}</span>)}</div><small>Inventory is updated by Vertex staff. Availability is confirmed before your quote is accepted.</small></div>}
               <div className="field">
                 <label htmlFor="custom_description">
