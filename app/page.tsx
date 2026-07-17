@@ -12,6 +12,7 @@ import { getSupabase } from "@/lib/supabase";
 export default function Home() {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [policyAccepted, setPolicyAccepted] = useState(false);
   const [availableFilaments, setAvailableFilaments] = useState<{ material: string; color: string }[]>([]);
   useEffect(() => {
     const supabase = getSupabase();
@@ -61,6 +62,7 @@ export default function Home() {
         `Success! Your tracking number is ${data}. Save it for order updates.`,
       );
       form.reset();
+      setPolicyAccepted(false);
     }
     setSending(false);
   }
@@ -286,10 +288,10 @@ export default function Home() {
                 <small>Valid codes are applied when Vertex prepares your quote.</small>
               </div>
               <label className="order-policy">
-                <input type="checkbox" required />
-                <span>I understand custom orders are final sale. Vertex quality-checks prints and reprints failed items before delivery. Vertex does not offer refunds or replacements for damage that happens after pickup or while handled by a shipping carrier.</span>
+                <input type="checkbox" required checked={policyAccepted} onChange={(e) => setPolicyAccepted(e.target.checked)} />
+                <span><strong>Yes, I agree.</strong> I understand custom orders are final sale. Vertex quality-checks prints and reprints failed items before delivery. Vertex does not offer refunds or replacements for damage that happens after pickup or while handled by a shipping carrier.</span>
               </label>
-              <button className="btn btn-dark" type="submit" disabled={sending}>
+              <button className="btn btn-dark" type="submit" disabled={sending || !policyAccepted}>
                 {sending ? "Saving order…" : "Send quote request"}{" "}
                 <ArrowRight size={17} />
               </button>
