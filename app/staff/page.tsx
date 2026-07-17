@@ -39,6 +39,7 @@ type Order = {
   model_url: string | null;
   status: string;
   assigned_to: string | null;
+  quoted_cents: number | null;
   update_preference: string;
   created_at: string;
 };
@@ -102,6 +103,7 @@ export default function Staff() {
   const [estimatedGrams, setEstimatedGrams] = useState(100);
   const [estimatedHours, setEstimatedHours] = useState(5);
   const [modelingHours, setModelingHours] = useState(0);
+  const [pricingOrderId, setPricingOrderId] = useState("");
   const gramRate = priceMaterial === "PLA" ? 0.15 : 0.25;
   const estimatedPrice = 5 + estimatedGrams * gramRate + estimatedHours * 2 + modelingHours;
   const [monthlyRevenue, setMonthlyRevenue] = useState(205);
@@ -138,7 +140,7 @@ export default function Staff() {
     const query = supabase
       .from("orders")
       .select(
-        "id,tracking_code,customer_name,customer_email,customer_phone,shipping_address,material,quantity,details,model_url,status,assigned_to,update_preference,created_at",
+        "id,tracking_code,customer_name,customer_email,customer_phone,shipping_address,material,quantity,details,model_url,status,assigned_to,quoted_cents,update_preference,created_at",
       )
       .order("created_at", { ascending: false });
     const { data } = await query;
@@ -339,18 +341,19 @@ export default function Staff() {
     setSaved(error ? `Payroll error: ${error.message}` : "Monthly payroll plan");
   }
 
-  async function updateOrder(orderId: string, changes: Partial<Pick<Order, "status" | "assigned_to">>, successMessage: string) {
+  async function updateOrder(orderId: string, changes: Partial<Pick<Order, "status" | "assigned_to" | "quoted_cents">>, successMessage: string) {
     const supabase = getSupabase();
     if (!supabase) return;
     setSaved("");
-    const { data, error } = await supabase.from("orders").update({ ...changes, updated_at: new Date().toISOString() }).eq("id", orderId).select("id,status,assigned_to").single();
+    const { data, error } = await supabase.from("orders").update({ ...changes, updated_at: new Date().toISOString() }).eq("id", orderId).select("id,status,assigned_to,quoted_cents").single();
     if (error) {
       setSaved(`Order error: ${error.message}`);
-      return;
+      return false;
     }
     setOrders((current) => current.map((order) => order.id === orderId ? { ...order, ...data } : order));
     setSelectedOrder((current) => current?.id === orderId ? { ...current, ...data } : current);
     setSaved(successMessage);
+    return true;
   }
 
   if (!logged)
@@ -552,6 +555,7 @@ export default function Staff() {
                   <div className="order-detail-grid">
                     <div><span>Customer</span><strong>{selectedOrder.customer_name}</strong><a href={`mailto:${selectedOrder.customer_email}`}>{selectedOrder.customer_email}</a>{selectedOrder.customer_phone && <a href={`tel:${selectedOrder.customer_phone}`}>{selectedOrder.customer_phone}</a>}</div>
                     <div><span>Print setup</span><strong>{selectedOrder.quantity} × {selectedOrder.material || "Material not selected"}</strong></div>
+                    <div><span>Saved customer quote</span><strong>{selectedOrder.quoted_cents == null ? "Not quoted yet" : `$${(selectedOrder.quoted_cents / 100).toFixed(2)}`}</strong></div>
                     <div className="custom-print-box"><span>Custom print description</span><p>{selectedOrder.details}</p></div>
                     <div><span>Delivery</span><strong>{selectedOrder.shipping_address ? "Ship order" : "Local pickup"}</strong><p className="shipping-address">{selectedOrder.shipping_address || "No shipping address provided."}</p></div>
                     <div><span>Model file</span>{selectedOrder.model_url ? <a className="btn btn-dark" href={selectedOrder.model_url} target="_blank" rel="noreferrer">Open model link <ArrowRight size={16} /></a> : <p>No model link was provided.</p>}</div>
@@ -569,8 +573,11 @@ export default function Staff() {
                         <small>Assignments save online immediately. Staff receive the order when they next sign in, even if they are offline now.</small>
                       </div>
                       <button className="btn btn-light" type="button" onClick={() => updateOrder(selectedOrder.id, { assigned_to: selectedOrder.assigned_to }, "Order assignment")}>Save assignment</button>
-                      {selectedOrder.status === "requested" && <button className="btn btn-dark" type="button" onClick={() => updateOrder(selectedOrder.id, { status: "approved", assigned_to: selectedOrder.assigned_to }, "Order accepted")}>Accept order</button>}
-                      {selectedOrder.status === "requested" && <button className="btn btn-deny" type="button" onClick={() => { if (window.confirm(`Deny order #${selectedOrder.tracking_code}?`)) updateOrder(selectedOrder.id, { status: "cancelled", assigned_to: null }, "Order denied"); }}>Deny order</button>}
+                      {['requested', 'quoted'].includes(selectedOrder.status) && <button className="btn btn-dark" type="button" onClick={() => updateOrder(selectedOrder.id, { status: "approved", assigned_to: selectedOrder.assigned_to }, "Order accepted")}>Accept order</button>}
+                      {['requested', 'quoted'].includes(selectedOrder.status) && <button className="btn btn-deny" type="button" onClick={() => { if (window.confirm(`Deny order #${selectedOrder.tracking_code}?`)) updateOrder(selectedOrder.id, { status: "cancelled", assigned_to: null }, "Order denied"); }}>Deny order</button>}
+                      {!['cancelled', 'completed'].includes(selectedOrder.status) && <div className="field completion-revenue"><label htmlFor="final-revenue">Quote / final revenue</label><div className="money-input"><span>$</span><input id="final-revenue" type="number" min="0" step="0.01" value={(selectedOrder.quoted_cents || 0) / 100} onChange={(e) => setSelectedOrder({ ...selectedOrder, quoted_cents: Math.round(Math.max(0, Number(e.target.value)) * 100) })} /></div></div>}
+                      {!['cancelled', 'completed'].includes(selectedOrder.status) && <button className="btn btn-light" type="button" onClick={() => updateOrder(selectedOrder.id, { status: "quoted", quoted_cents: selectedOrder.quoted_cents ?? 0 }, "Order quote")}>Save quote</button>}
+                      {!['requested', 'cancelled', 'completed'].includes(selectedOrder.status) && <button className="btn btn-dark" type="button" onClick={() => { if (window.confirm(`Mark order #${selectedOrder.tracking_code} completed at $${((selectedOrder.quoted_cents || 0) / 100).toFixed(2)}?`)) updateOrder(selectedOrder.id, { status: "completed", quoted_cents: selectedOrder.quoted_cents ?? 0 }, "Order completed"); }}>Mark completed</button>}
                     </div>
                   )}
                 </article>
@@ -714,6 +721,13 @@ export default function Staff() {
                 <h2>Print price calculator</h2>
                 <p className="panel-copy">Enter the slicer&rsquo;s total filament weight and estimated print time.</p>
                 <div className="field">
+                  <label htmlFor="pricing-order">Order to quote</label>
+                  <select id="pricing-order" value={pricingOrderId} onChange={(e) => setPricingOrderId(e.target.value)}>
+                    <option value="">Choose an active order</option>
+                    {orders.filter((order) => !['cancelled', 'completed'].includes(order.status)).map((order) => <option key={order.id} value={order.id}>#{order.tracking_code} — {order.customer_name}</option>)}
+                  </select>
+                </div>
+                <div className="field">
                   <label htmlFor="admin-price-material">Material</label>
                   <select id="admin-price-material" value={priceMaterial} onChange={(e) => setPriceMaterial(e.target.value as "PLA" | "PETG")}>
                     <option value="PLA">PLA — $0.15 per gram</option>
@@ -741,6 +755,7 @@ export default function Staff() {
                 </div>
                 <p className="estimate-formula">$5 setup + ${gramRate.toFixed(2)} × {estimatedGrams}g + $2 × {estimatedHours} print hours + $1 × {modelingHours} modeling hours</p>
                 <small>Shipping, sales tax, unusual materials, and later customer-requested changes are added separately.</small>
+                <button className="btn btn-dark team-save" type="button" disabled={!pricingOrderId} onClick={() => updateOrder(pricingOrderId, { status: "quoted", quoted_cents: Math.round(estimatedPrice * 100) }, "Pricing quote")}>Save quote to selected order</button>
               </article>
               <article className="panel rate-reference">
                 <h2>Vertex rates</h2>
