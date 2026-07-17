@@ -29,6 +29,7 @@ export default function Home() {
       p_customer_name: String(values.get("name") || ""),
       p_customer_email: String(values.get("email") || ""),
       p_customer_phone: String(values.get("phone") || ""),
+      p_shipping_address: String(values.get("shipping_address") || ""),
       p_update_preference: preference,
       p_material: String(values.get("material") || ""),
       p_quantity: Number(values.get("quantity") || 1),
@@ -181,6 +182,11 @@ export default function Home() {
                   <label htmlFor="email">Email</label>
                   <input id="email" name="email" type="email" required />
                 </div>
+              </div>
+              <div className="field">
+                <label htmlFor="shipping_address">Shipping address (leave blank for local pickup)</label>
+                <textarea id="shipping_address" name="shipping_address" autoComplete="street-address" placeholder="Street address, apartment or unit, city, state, and ZIP code" />
+                <small>Only Vertex staff can view this address. We will confirm shipping costs before payment.</small>
               </div>
               <div className="grid2">
                 <div className="field">
