@@ -41,7 +41,7 @@ export default function TrackOrder() {
   return (
     <main className="login">
       <div className="login-card track-card">
-        <a className="brand" href="../#order">
+        <a className="brand" href="https://sheep4mil-ui.github.io/Vertex/#order">
           <span className="mark">V</span>Vertex
         </a>
         <h1>Track a print</h1>

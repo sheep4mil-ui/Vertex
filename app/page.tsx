@@ -47,7 +47,7 @@ export default function Home() {
   return (
     <>
       <header className="shell nav">
-        <a className="brand" href="#order">
+        <a className="brand" href="https://sheep4mil-ui.github.io/Vertex/#order">
           <span className="mark">V</span>Vertex
         </a>
         <nav className="navlinks">
@@ -257,7 +257,7 @@ export default function Home() {
         </section>
       </main>
       <footer className="shell footer">
-        <a className="brand" href="#order">
+        <a className="brand" href="https://sheep4mil-ui.github.io/Vertex/#order">
           <span className="mark">V</span>Vertex
         </a>
         <span>Custom 3D printing in Texas</span>

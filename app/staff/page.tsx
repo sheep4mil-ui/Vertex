@@ -31,6 +31,7 @@ type Order = {
   tracking_code: string;
   customer_name: string;
   customer_email: string;
+  customer_phone: string | null;
   details: string;
   status: string;
   update_preference: string;
@@ -130,7 +131,7 @@ export default function Staff() {
     const query = supabase
       .from("orders")
       .select(
-        "id,tracking_code,customer_name,customer_email,details,status,update_preference,created_at",
+        "id,tracking_code,customer_name,customer_email,customer_phone,details,status,update_preference,created_at",
       )
       .order("created_at", { ascending: false });
     const { data } = await query;
@@ -335,7 +336,7 @@ export default function Staff() {
     return (
       <main className="login">
         <div className="login-card">
-          <a className="brand" href="../#order">
+          <a className="brand" href="https://sheep4mil-ui.github.io/Vertex/#order">
             <span className="mark">V</span>Vertex
           </a>
           <h1>Team sign in</h1>
@@ -381,11 +382,25 @@ export default function Staff() {
   const requestedCount = orders.filter((order) => order.status === "requested").length;
   const printingCount = orders.filter((order) => order.status === "printing").length;
   const readyCount = orders.filter((order) => order.status === "ready").length;
+  const customers = Array.from(orders.reduce((customerMap, order) => {
+    const key = order.customer_email.trim().toLowerCase();
+    const existing = customerMap.get(key);
+    if (existing) existing.orderCount += 1;
+    else customerMap.set(key, {
+      name: order.customer_name,
+      email: order.customer_email,
+      phone: order.customer_phone,
+      orderCount: 1,
+      lastTrackingCode: order.tracking_code,
+      lastOrderDate: order.created_at,
+    });
+    return customerMap;
+  }, new Map<string, { name: string; email: string; phone: string | null; orderCount: number; lastTrackingCode: string; lastOrderDate: string }>()).values());
   return (
     <main className="portal">
       <div className="portal-grid">
         <aside className="side">
-          <a className="brand" href="../#order">
+          <a className="brand" href="https://sheep4mil-ui.github.io/Vertex/#order">
             <span className="mark">V</span>Vertex
           </a>
           <nav>
@@ -521,18 +536,16 @@ export default function Staff() {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td>Jordan M.</td>
-                    <td>Email + text</td>
-                    <td>2</td>
-                    <td>#VTX-1042</td>
-                  </tr>
-                  <tr>
-                    <td>Alex R.</td>
-                    <td>Email</td>
-                    <td>1</td>
-                    <td>#VTX-1041</td>
-                  </tr>
+                  {customers.length === 0 ? (
+                    <tr><td colSpan={4}>No real customers found yet. Customers appear here after they place an order.</td></tr>
+                  ) : customers.map((customer) => (
+                    <tr key={customer.email.toLowerCase()}>
+                      <td>{customer.name}</td>
+                      <td><a href={`mailto:${customer.email}`}>{customer.email}</a>{customer.phone && <><br /><a href={`tel:${customer.phone}`}>{customer.phone}</a></>}</td>
+                      <td>{customer.orderCount}</td>
+                      <td>#{customer.lastTrackingCode}<br /><small>{new Date(customer.lastOrderDate).toLocaleDateString()}</small></td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </article>
