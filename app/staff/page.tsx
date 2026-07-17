@@ -426,6 +426,16 @@ export default function Staff() {
   async function deleteFilament(id: string) {
     const supabase = getSupabase();
     if (!supabase) return;
+    const filament = filaments.find((item) => item.id === id);
+    if (!filament) return;
+    if (filament.spool_count > 1) {
+      const gramsPerSpool = filament.grams_available / filament.spool_count;
+      const updated = { ...filament, spool_count: filament.spool_count - 1, grams_available: Math.max(0, Math.round(filament.grams_available - gramsPerSpool)) };
+      const { error } = await supabase.from("filament_inventory").update({ spool_count: updated.spool_count, grams_available: updated.grams_available }).eq("id", id);
+      if (error) setSaved(`Inventory error: ${error.message}`);
+      else { setFilaments((current) => current.map((item) => item.id === id ? updated : item)); setSaved(`Removed one ${filament.material} ${filament.color} spool`); }
+      return;
+    }
     const { error } = await supabase.from("filament_inventory").delete().eq("id", id);
     if (error) setSaved(`Inventory error: ${error.message}`);
     else { setFilaments((current) => current.filter((item) => item.id !== id)); setSaved("Filament removed"); }
@@ -960,7 +970,7 @@ export default function Staff() {
                       <td>{canManageInventory ? <input className="table-number" type="number" min="0" value={filament.grams_available} onChange={(e) => setFilaments((items) => items.map((item) => item.id === filament.id ? { ...item, grams_available: Math.max(0, Number(e.target.value)) } : item))} onBlur={() => saveFilament(filament)} /> : filament.grams_available}</td>
                       <td>{canManageInventory ? <label className="access-toggle"><input type="checkbox" checked={filament.in_stock} onChange={(e) => { const updated = { ...filament, in_stock: e.target.checked }; setFilaments((items) => items.map((item) => item.id === filament.id ? updated : item)); saveFilament(updated); }} /> In stock</label> : <span className={`pill ${filament.in_stock ? "printing" : "cancelled"}`}>{filament.in_stock ? "In stock" : "Out"}</span>}</td>
                       <td>{canManageInventory ? <input className="inventory-input" value={filament.notes} onChange={(e) => setFilaments((items) => items.map((item) => item.id === filament.id ? { ...item, notes: e.target.value } : item))} onBlur={() => saveFilament(filament)} /> : filament.notes || "—"}</td>
-                      {canManageInventory && <td><button className="btn btn-deny table-save" type="button" onClick={() => deleteFilament(filament.id)}>Remove</button></td>}
+                      {canManageInventory && <td><button className="btn btn-deny table-save" type="button" onClick={() => deleteFilament(filament.id)}>Remove one spool</button></td>}
                     </tr>
                   ))}
                 </tbody></table></div>
