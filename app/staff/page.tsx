@@ -117,6 +117,7 @@ export default function Staff() {
   const [estimatedHours, setEstimatedHours] = useState(5);
   const [modelingHours, setModelingHours] = useState(0);
   const [pricingOrderId, setPricingOrderId] = useState("");
+  const [quoteRecipient, setQuoteRecipient] = useState("");
   const gramRate = priceMaterial === "PLA" ? 0.15 : 0.25;
   const estimatedPrice = 5 + estimatedGrams * gramRate + estimatedHours * 2 + modelingHours;
   const pricingOrder = orders.find((order) => order.id === pricingOrderId);
@@ -530,7 +531,7 @@ export default function Staff() {
     return true;
   }
 
-  async function saveQuoteAndOpenGmail(order: Order, quotedCents: number) {
+  async function saveQuoteAndOpenGmail(order: Order, quotedCents: number, receivingEmail: string = order.customer_email) {
     const composeWindow = window.open("about:blank", "_blank");
     const savedQuote = await updateOrder(order.id, { status: "quoted", quoted_cents: quotedCents }, "Order quote");
     if (!savedQuote) {
@@ -541,7 +542,7 @@ export default function Staff() {
     const subject = `Your Vertex quote #${order.tracking_code}`;
     const discountLine = order.promo_code && order.promo_percent_off ? `\nYour ${order.promo_code} code applied ${order.promo_percent_off}% off.` : "";
     const body = `Hi ${order.customer_name},\n\nYour Vertex 3D-printing quote for order #${order.tracking_code} is $${quote}.${discountLine}\n\nReply to this email to approve the quote or ask questions. Shipping will be confirmed separately if needed.\n\nThank you,\nVertex 3D Printing`;
-    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(order.customer_email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(receivingEmail.trim() || order.customer_email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     if (composeWindow) composeWindow.location.href = gmailUrl;
     else window.open(gmailUrl, "_blank", "noopener,noreferrer");
   }
@@ -926,7 +927,7 @@ export default function Staff() {
                       type="button"
                       key={order.id}
                       className={pricingOrderId === order.id ? "selected" : ""}
-                      onClick={() => setPricingOrderId(order.id)}
+                      onClick={() => { setPricingOrderId(order.id); setQuoteRecipient(order.customer_email); }}
                     >
                       <span><strong>#{order.tracking_code}</strong>{order.customer_name}</span>
                       <span><small>{order.status.replaceAll("_", " ")}</small>{order.promo_code && <b>{order.promo_code} · {order.promo_percent_off}% off</b>}</span>
@@ -935,10 +936,15 @@ export default function Staff() {
                 </div>
                 <div className="field">
                   <label htmlFor="pricing-order">Order to quote</label>
-                  <select id="pricing-order" value={pricingOrderId} onChange={(e) => setPricingOrderId(e.target.value)}>
+                  <select id="pricing-order" value={pricingOrderId} onChange={(e) => { const id = e.target.value; setPricingOrderId(id); setQuoteRecipient(orders.find((order) => order.id === id)?.customer_email || ""); }}>
                     <option value="">Choose an active order</option>
                     {orders.filter((order) => !['cancelled', 'completed'].includes(order.status)).map((order) => <option key={order.id} value={order.id}>#{order.tracking_code} — {order.customer_name}</option>)}
                   </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="quote-recipient">Receiving Gmail address</label>
+                  <input id="quote-recipient" type="email" value={quoteRecipient} onChange={(e) => setQuoteRecipient(e.target.value)} placeholder="example@gmail.com" />
+                  <small>Filled from the selected order. You can edit it before opening Gmail.</small>
                 </div>
                 <div className="field">
                   <label htmlFor="admin-price-material">Material</label>
@@ -970,7 +976,7 @@ export default function Staff() {
                 <p className="estimate-formula">$5 setup + ${gramRate.toFixed(2)} × {estimatedGrams}g + $2 × {estimatedHours} print hours + $1 × {modelingHours} modeling hours</p>
                 <small>Shipping, sales tax, unusual materials, and later customer-requested changes are added separately.</small>
                 <button className="btn btn-dark team-save" type="button" disabled={!pricingOrderId} onClick={() => updateOrder(pricingOrderId, { status: "quoted", quoted_cents: Math.round(discountedEstimatedPrice * 100) }, "Pricing quote")}>Save quote to selected order</button>
-                <button className="btn btn-light team-save" type="button" disabled={!pricingOrderId} onClick={() => { if (pricingOrder) saveQuoteAndOpenGmail(pricingOrder, Math.round(discountedEstimatedPrice * 100)); }}>Save quote &amp; open Gmail</button>
+                <button className="btn btn-light team-save" type="button" disabled={!pricingOrderId || !quoteRecipient.trim()} onClick={() => { if (pricingOrder) saveQuoteAndOpenGmail(pricingOrder, Math.round(discountedEstimatedPrice * 100), quoteRecipient); }}>Save quote &amp; open Gmail</button>
               </article>
               <article className="panel rate-reference">
                 <h2>Vertex rates</h2>
