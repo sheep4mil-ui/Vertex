@@ -51,6 +51,12 @@ begin
     update public.promo_codes
     set times_used = times_used + 1
     where code = normalized_promo;
+
+    -- Remove the code immediately when this order uses its final allowed use.
+    delete from public.promo_codes
+    where code = normalized_promo
+      and max_uses is not null
+      and times_used >= max_uses;
   end if;
 
   insert into public.orders(
@@ -74,4 +80,25 @@ $$;
 
 revoke all on function public.submit_order(text,text,text,text,text,text,integer,text,text,text) from public;
 grant execute on function public.submit_order(text,text,text,text,text,text,integer,text,text,text) to anon, authenticated;
+
+-- Remove expired codes every hour, even if nobody tries to use them.
+create extension if not exists pg_cron with schema extensions;
+do $$
+declare existing_job bigint;
+begin
+  for existing_job in
+    select jobid from cron.job where jobname = 'delete-expired-vertex-promo-codes'
+  loop
+    perform cron.unschedule(existing_job);
+  end loop;
+end $$;
+select cron.schedule(
+  'delete-expired-vertex-promo-codes',
+  '5 * * * *',
+  $cleanup$
+    delete from public.promo_codes
+    where expires_at < now()
+       or (max_uses is not null and times_used >= max_uses);
+  $cleanup$
+);
 notify pgrst, 'reload schema';
