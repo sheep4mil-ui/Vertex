@@ -13,10 +13,10 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [policyAccepted, setPolicyAccepted] = useState(false);
-  const [orderType, setOrderType] = useState<"printing" | "cnc" | "pcb_manufacturing" | "pcb_assembly">("printing");
+  const [orderType, setOrderType] = useState<"printing" | "cnc" | "pcb_manufacturing" | "metal_printing">("printing");
   const serviceName = orderType === "cnc" ? "CNC"
     : orderType === "pcb_manufacturing" ? "PCB Manufacturing"
-    : orderType === "pcb_assembly" ? "PCB Assembly"
+    : orderType === "metal_printing" ? "Metal 3D Printing"
     : "3D Printing";
   const [availableFilaments, setAvailableFilaments] = useState<{ material: string; color: string }[]>([]);
   useEffect(() => {
@@ -54,15 +54,13 @@ export default function Home() {
             `Surface finish: ${String(values.get("pcb_finish") || "Not sure")}`,
             `Solder mask color: ${String(values.get("pcb_mask") || "Not sure")}`,
           ]
-        : orderType === "pcb_assembly"
+        : orderType === "metal_printing"
           ? [
-              `Assembly service: ${String(values.get("assembly_service") || "Not sure")}`,
-              `Assembly side: ${String(values.get("assembly_side") || "Not sure")}`,
-              `Board format: ${String(values.get("board_format") || "Not sure")}`,
-              `Board/component details: ${String(values.get("specialty_material") || "Not provided")}`,
-              `Unique parts: ${String(values.get("unique_parts") || "Not provided")}`,
-              `SMD parts: ${String(values.get("smd_parts") || "Not provided")}`,
-              `Through-hole parts: ${String(values.get("through_hole_parts") || "Not provided")}`,
+              `Metal/process: ${String(values.get("specialty_material") || "Not sure")}`,
+              `Finish: ${String(values.get("metal_finish") || "Not sure")}`,
+              `Dimensions: ${String(values.get("metal_dimensions") || "Not provided")}`,
+              `Tolerance: ${String(values.get("metal_tolerance") || "Not provided")}`,
+              `Intended use: ${String(values.get("metal_use") || "Not provided")}`,
             ]
           : [];
     const orderArguments = {
@@ -233,9 +231,9 @@ export default function Home() {
                 <button type="button" role="tab" aria-selected={orderType === "printing"} className={orderType === "printing" ? "active" : ""} onClick={() => setOrderType("printing")}>3D Printing</button>
                 <button type="button" role="tab" aria-selected={orderType === "cnc"} className={orderType === "cnc" ? "active" : ""} onClick={() => setOrderType("cnc")}>CNC Request</button>
                 <button type="button" role="tab" aria-selected={orderType === "pcb_manufacturing"} className={orderType === "pcb_manufacturing" ? "active" : ""} onClick={() => setOrderType("pcb_manufacturing")}>PCB Manufacturing</button>
-                <button type="button" role="tab" aria-selected={orderType === "pcb_assembly"} className={orderType === "pcb_assembly" ? "active" : ""} onClick={() => setOrderType("pcb_assembly")}>PCB Assembly</button>
+                <button type="button" role="tab" aria-selected={orderType === "metal_printing"} className={orderType === "metal_printing" ? "active" : ""} onClick={() => setOrderType("metal_printing")}>Metal 3D Printing</button>
               </div>
-              {orderType !== "printing" && <div className="cnc-review-banner"><strong>{serviceName} request</strong><span>{orderType === "pcb_manufacturing" ? "Vertex will review the design and may order accepted boards or parts from PCBWay or another approved supplier." : orderType === "pcb_assembly" ? "Vertex may order boards and components from PCBWay or another approved supplier, then assemble and inspect the accepted project." : "Vertex completes accepted CNC work using available equipment and materials."} Upper management will accept or deny the request before work begins.</span></div>}
+              {orderType !== "printing" && <div className="cnc-review-banner"><strong>{serviceName} request</strong><span>{orderType === "pcb_manufacturing" ? "Vertex will review the design and may order accepted boards or parts from PCBWay or another approved supplier." : orderType === "metal_printing" ? "Vertex will review the model and may order the accepted metal print from PCBWay or another approved supplier, then inspect it before delivery." : "Vertex completes accepted CNC work using available equipment and materials."} Upper management will accept or deny the request before work begins.</span></div>}
               {message && (
                 <div
                   className={
@@ -282,8 +280,8 @@ export default function Home() {
                     {availableFilaments.length > 0 ? availableFilaments.map((filament) => <option key={`${filament.material}-${filament.color}`} value={`${filament.material} - ${filament.color}`}>{filament.material} — {filament.color}</option>) : <><option>PLA</option><option>PETG</option><option>TPU / flexible</option></>}
                   </select>
                 </div> : <div className="field">
-                  <label htmlFor="specialty_material">{orderType === "cnc" ? "Preferred CNC material" : orderType === "pcb_manufacturing" ? "PCB material and finish" : "Board and component details"}</label>
-                  <input id="specialty_material" name="specialty_material" required placeholder={orderType === "cnc" ? "Wood, aluminum, plastic, or not sure" : orderType === "pcb_manufacturing" ? "FR-4, layer count, copper weight, surface finish, or not sure" : "PCB type, component sourcing needs, soldering requirements, or not sure"} />
+                  <label htmlFor="specialty_material">{orderType === "cnc" ? "Preferred CNC material" : orderType === "pcb_manufacturing" ? "PCB material and finish" : "Preferred metal and printing process"}</label>
+                  <input id="specialty_material" name="specialty_material" required placeholder={orderType === "cnc" ? "Wood, aluminum, plastic, or not sure" : orderType === "pcb_manufacturing" ? "FR-4, layer count, copper weight, surface finish, or not sure" : "Stainless steel, aluminum, titanium, DMLS, SLM, or not sure"} />
                 </div>}
                 <div className="field">
                   <label htmlFor="quantity">Quantity</label>
@@ -350,41 +348,23 @@ export default function Home() {
                   </div>
                 </div>
               </div>}
-              {orderType === "pcb_assembly" && <div className="specialty-fields">
+              {orderType === "metal_printing" && <div className="specialty-fields">
                 <div className="grid2">
                   <div className="field">
-                    <label htmlFor="assembly_service">Parts and assembly option</label>
-                    <select id="assembly_service" name="assembly_service" required>
-                      <option value="">Choose an option</option>
-                      <option>Turnkey — Vertex sources available parts</option>
-                      <option>Kitted — customer supplies all parts</option>
-                      <option>Combo — customer and Vertex supply parts</option>
-                      <option>Not sure—review my files</option>
-                    </select>
+                    <label htmlFor="metal_finish">Requested finish</label>
+                    <input id="metal_finish" name="metal_finish" placeholder="As-printed, polished, bead blasted, or not sure" />
                   </div>
                   <div className="field">
-                    <label htmlFor="assembly_side">Assembly side</label>
-                    <select id="assembly_side" name="assembly_side">
-                      <option>Not sure</option><option>Top side</option><option>Bottom side</option><option>Both sides</option>
-                    </select>
+                    <label htmlFor="metal_dimensions">Part dimensions</label>
+                    <input id="metal_dimensions" name="metal_dimensions" placeholder="Length × width × height in mm" />
                   </div>
                   <div className="field">
-                    <label htmlFor="board_format">Board format</label>
-                    <select id="board_format" name="board_format">
-                      <option>Not sure</option><option>Single boards</option><option>Panelized boards</option>
-                    </select>
+                    <label htmlFor="metal_tolerance">Required tolerance</label>
+                    <input id="metal_tolerance" name="metal_tolerance" placeholder="Example: ±0.2 mm, or not sure" />
                   </div>
                   <div className="field">
-                    <label htmlFor="unique_parts">Number of unique parts</label>
-                    <input id="unique_parts" name="unique_parts" type="number" min="0" placeholder="Optional" />
-                  </div>
-                  <div className="field">
-                    <label htmlFor="smd_parts">SMD parts per board</label>
-                    <input id="smd_parts" name="smd_parts" type="number" min="0" placeholder="Optional" />
-                  </div>
-                  <div className="field">
-                    <label htmlFor="through_hole_parts">Through-hole parts per board</label>
-                    <input id="through_hole_parts" name="through_hole_parts" type="number" min="0" placeholder="Optional" />
+                    <label htmlFor="metal_use">Intended use</label>
+                    <input id="metal_use" name="metal_use" placeholder="Prototype, display, mechanical part, or other" />
                   </div>
                 </div>
               </div>}
@@ -395,13 +375,13 @@ export default function Home() {
               {orderType === "printing" && availableFilaments.length > 0 && <div className="available-filaments"><strong>Colors currently in stock</strong><div>{availableFilaments.map((filament) => <span key={`${filament.material}-${filament.color}`}>{filament.material} · {filament.color}</span>)}</div><small>Inventory is updated by Vertex staff. Availability is confirmed before your quote is accepted.</small></div>}
               <div className="field">
                 <label htmlFor="custom_description">
-                  {orderType === "cnc" ? "CNC project description" : orderType === "pcb_manufacturing" ? "PCB manufacturing description" : orderType === "pcb_assembly" ? "PCB assembly description" : "Custom order description"}
+                  {orderType === "cnc" ? "CNC project description" : orderType === "pcb_manufacturing" ? "PCB manufacturing description" : orderType === "metal_printing" ? "Metal 3D printing description" : "Custom order description"}
                 </label>
                 <textarea
                   id="custom_description"
                   name="custom_description"
                   required
-                  placeholder={orderType === "cnc" ? "Describe the part, dimensions, material, tolerances, purpose, and deadline." : orderType === "pcb_manufacturing" ? "Describe board dimensions, layers, quantity, material, finish, files, and deadline." : orderType === "pcb_assembly" ? "Describe the board, components, sourcing, soldering, testing needs, quantity, and deadline." : "Describe the object, size, color, purpose, special features, and any deadline."}
+                  placeholder={orderType === "cnc" ? "Describe the part, dimensions, material, tolerances, purpose, and deadline." : orderType === "pcb_manufacturing" ? "Describe board dimensions, layers, quantity, material, finish, files, and deadline." : orderType === "metal_printing" ? "Describe the metal part, strength needs, dimensions, tolerances, finish, purpose, and deadline." : "Describe the object, size, color, purpose, special features, and any deadline."}
                 />
                 <small>
                   Use this for a completely custom idea or to explain changes
@@ -410,7 +390,7 @@ export default function Home() {
               </div>
               <div className="field">
                 <label htmlFor="model_url">
-                  {orderType === "cnc" ? "Share link to your CNC design or drawing (optional)" : orderType === "pcb_manufacturing" ? "Share link to Gerber/design files (optional)" : orderType === "pcb_assembly" ? "Share link to PCB, BOM, and placement files (optional)" : "Share link to your 3D model (optional)"}
+                  {orderType === "cnc" ? "Share link to your CNC design or drawing (optional)" : orderType === "pcb_manufacturing" ? "Share link to Gerber/design files (optional)" : orderType === "metal_printing" ? "Share link to your metal 3D model or drawing (optional)" : "Share link to your 3D model (optional)"}
                 </label>
                 <input
                   id="model_url"
