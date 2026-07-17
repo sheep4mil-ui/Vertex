@@ -16,7 +16,7 @@ insert into private.vertex_sheet_sync_config(singleton, web_app_url, webhook_sec
 values (
   true,
   'https://script.google.com/macros/s/AKfycbw31hos8T6CpDqlJgYIPaT9IeVREDGGrg6utOGjOwgNv3CS6Ihws9nnePGwKePFCUU/exec',
-  'REPLACE_WITH_YOUR_VERTEX_SECRET'
+  'vertex0000'
 )
 on conflict(singleton) do update set
   web_app_url=excluded.web_app_url,
@@ -32,29 +32,36 @@ declare
   config private.vertex_sheet_sync_config;
   order_row public.orders;
 begin
-  select * into config
-  from private.vertex_sheet_sync_config
-  where singleton;
+  begin
+    select * into config
+    from private.vertex_sheet_sync_config
+    where singleton;
 
-  select * into order_row
-  from public.orders
-  where tracking_code = new.tracking_code;
+    select * into order_row
+    from public.orders
+    where tracking_code = new.tracking_code;
 
-  perform net.http_post(
-    url := config.web_app_url || '?secret=' || config.webhook_secret,
-    headers := '{"Content-Type":"application/json"}'::jsonb,
-    body := jsonb_build_object(
-      'record', jsonb_build_object(
-        'tracking_code', new.tracking_code,
-        'customer_email', new.customer_email,
-        'completed_at', new.completed_at,
-        'gross_revenue_cents', new.gross_revenue_cents,
-        'refunded_cents', new.refunded_cents,
-        'promo_code', order_row.promo_code,
-        'promo_percent_off', order_row.promo_percent_off
+    perform net.http_post(
+      url := config.web_app_url || '?secret=' || config.webhook_secret,
+      headers := '{"Content-Type":"application/json"}'::jsonb,
+      body := jsonb_build_object(
+        'record', jsonb_build_object(
+          'tracking_code', new.tracking_code,
+          'customer_email', new.customer_email,
+          'completed_at', new.completed_at,
+          'gross_revenue_cents', new.gross_revenue_cents,
+          'refunded_cents', new.refunded_cents,
+          'promo_code', order_row.promo_code,
+          'promo_percent_off', order_row.promo_percent_off
+        )
       )
-    )
-  );
+    );
+  exception when others then
+    -- Revenue archiving and order completion must succeed even when the
+    -- external Google service is unavailable. The row remains in Supabase
+    -- and can be retried by rerunning this migration's final backfill update.
+    raise warning 'Vertex Google Sheet sync failed: %', sqlerrm;
+  end;
   return new;
 end;
 $$;
