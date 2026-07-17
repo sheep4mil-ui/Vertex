@@ -13,19 +13,20 @@ import {
 import { getSupabase } from "@/lib/supabase";
 
 type Tab =
-  "Orders" | "Customers" | "Team" | "Pricing" | "Payments" | "Discounts" | "Messages" | "Email Center" | "Settings";
+  "Orders" | "Customers" | "Team" | "Pricing" | "Inventory" | "Payments" | "Discounts" | "Messages" | "Email Center" | "Settings";
 const adminTabs: Tab[] = [
   "Orders",
   "Customers",
   "Team",
   "Pricing",
+  "Inventory",
   "Payments",
   "Discounts",
   "Messages",
   "Email Center",
   "Settings",
 ];
-const employeeTabs: Tab[] = ["Orders", "Pricing", "Messages", "Email Center", "Settings"];
+const employeeTabs: Tab[] = ["Orders", "Pricing", "Inventory", "Messages", "Email Center", "Settings"];
 type Order = {
   id: string;
   tracking_code: string;
@@ -69,6 +70,7 @@ type TeamMember = {
   active: boolean;
 };
 type PaymentRow = { role: string; count: number; baseAmount: number };
+type Filament = { id: string; material: string; color: string; spool_count: number; grams_available: number; in_stock: boolean; notes: string };
 
 export default function Staff() {
   const [logged, setLogged] = useState(false);
@@ -99,6 +101,8 @@ export default function Staff() {
   const [messageBody, setMessageBody] = useState("");
   const [selectedMessage, setSelectedMessage] = useState<StaffMessage | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [filaments, setFilaments] = useState<Filament[]>([]);
+  const [newFilament, setNewFilament] = useState({ material: "PLA", color: "", spool_count: 1, grams_available: 1000, notes: "" });
   const [priceMaterial, setPriceMaterial] = useState<"PLA" | "PETG">("PLA");
   const [estimatedGrams, setEstimatedGrams] = useState(100);
   const [estimatedHours, setEstimatedHours] = useState(5);
@@ -158,6 +162,8 @@ export default function Staff() {
     ]);
     setDirectory((directoryData || []) as DirectoryMember[]);
     setMessages((messageData || []) as StaffMessage[]);
+    const { data: filamentData } = await supabase.from("filament_inventory").select("id,material,color,spool_count,grams_available,in_stock,notes").order("material").order("color");
+    setFilaments((filamentData || []) as Filament[]);
     if (profile.level === "admin") {
       const [{ data: teamData }, { data: payrollData }] = await Promise.all([
         supabase.rpc("get_vertex_team"),
@@ -340,6 +346,34 @@ export default function Staff() {
       p_social_management_count: counts["Social Management"] || 0,
     });
     setSaved(error ? `Payroll error: ${error.message}` : "Monthly payroll plan");
+  }
+
+  async function addFilament(e: React.FormEvent) {
+    e.preventDefault();
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const { data, error } = await supabase.from("filament_inventory").insert({ ...newFilament, color: newFilament.color.trim(), notes: newFilament.notes.trim(), in_stock: newFilament.grams_available > 0 }).select().single();
+    if (error) setSaved(`Inventory error: ${error.message}`);
+    else {
+      setFilaments((current) => [...current, data as Filament]);
+      setNewFilament({ material: "PLA", color: "", spool_count: 1, grams_available: 1000, notes: "" });
+      setSaved("Filament inventory");
+    }
+  }
+
+  async function saveFilament(filament: Filament) {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const { error } = await supabase.from("filament_inventory").update({ material: filament.material, color: filament.color, spool_count: filament.spool_count, grams_available: filament.grams_available, in_stock: filament.in_stock, notes: filament.notes }).eq("id", filament.id);
+    setSaved(error ? `Inventory error: ${error.message}` : `${filament.material} ${filament.color}`);
+  }
+
+  async function deleteFilament(id: string) {
+    const supabase = getSupabase();
+    if (!supabase || !window.confirm("Remove this filament from inventory?")) return;
+    const { error } = await supabase.from("filament_inventory").delete().eq("id", id);
+    if (error) setSaved(`Inventory error: ${error.message}`);
+    else { setFilaments((current) => current.filter((item) => item.id !== id)); setSaved("Filament removed"); }
   }
 
   async function updateOrder(orderId: string, changes: Partial<Pick<Order, "status" | "assigned_to" | "quoted_cents">>, successMessage: string) {
@@ -840,6 +874,41 @@ export default function Staff() {
                 </dl>
                 <p className={moneyRemaining < 0 ? "payment-warning" : "payment-ok"}>{moneyRemaining < 0 ? "The plan is over budget. Lower a payment or increase the revenue amount." : "This plan fits within the entered monthly revenue."}</p>
               </aside>
+            </div>
+          )}
+          {activeTab === "Inventory" && (
+            <div className="panel-stack">
+              {role === "admin" && (
+                <article className="panel">
+                  <p className="eyebrow">Admin inventory</p>
+                  <h2>Add filament</h2>
+                  <form className="inventory-form" onSubmit={addFilament}>
+                    <div className="field"><label htmlFor="filament-material">Material</label><select id="filament-material" value={newFilament.material} onChange={(e) => setNewFilament({ ...newFilament, material: e.target.value })}><option>PLA</option><option>PETG</option><option>TPU</option><option>ABS</option><option>Other</option></select></div>
+                    <div className="field"><label htmlFor="filament-color">Color</label><input id="filament-color" required value={newFilament.color} onChange={(e) => setNewFilament({ ...newFilament, color: e.target.value })} /></div>
+                    <div className="field"><label htmlFor="filament-spools">Spools</label><input id="filament-spools" type="number" min="0" step="0.25" value={newFilament.spool_count} onChange={(e) => setNewFilament({ ...newFilament, spool_count: Math.max(0, Number(e.target.value)) })} /></div>
+                    <div className="field"><label htmlFor="filament-grams">Approx. grams</label><input id="filament-grams" type="number" min="0" value={newFilament.grams_available} onChange={(e) => setNewFilament({ ...newFilament, grams_available: Math.max(0, Number(e.target.value)) })} /></div>
+                    <div className="field inventory-notes"><label htmlFor="filament-notes">Notes</label><input id="filament-notes" value={newFilament.notes} onChange={(e) => setNewFilament({ ...newFilament, notes: e.target.value })} /></div>
+                    <button className="btn btn-dark" type="submit">Add filament</button>
+                  </form>
+                </article>
+              )}
+              <article className="panel">
+                <h2>Filament in stock</h2>
+                <p className="panel-copy">Shared inventory for administrators and employees preparing quotes. Admin edits save automatically.</p>
+                <div className="payment-table-wrap"><table className="table inventory-table"><thead><tr><th>Material</th><th>Color</th><th>Spools</th><th>Approx. grams</th><th>Status</th><th>Notes</th>{role === "admin" && <th></th>}</tr></thead><tbody>
+                  {filaments.length === 0 ? <tr><td colSpan={role === "admin" ? 7 : 6}>No filament records found. An admin can add stock after filament-inventory.sql is activated.</td></tr> : filaments.map((filament) => (
+                    <tr key={filament.id}>
+                      <td>{role === "admin" ? <input className="inventory-input" value={filament.material} onChange={(e) => setFilaments((items) => items.map((item) => item.id === filament.id ? { ...item, material: e.target.value } : item))} onBlur={() => saveFilament(filament)} /> : filament.material}</td>
+                      <td>{role === "admin" ? <input className="inventory-input" value={filament.color} onChange={(e) => setFilaments((items) => items.map((item) => item.id === filament.id ? { ...item, color: e.target.value } : item))} onBlur={() => saveFilament(filament)} /> : filament.color}</td>
+                      <td>{role === "admin" ? <input className="table-number" type="number" min="0" step="0.25" value={filament.spool_count} onChange={(e) => setFilaments((items) => items.map((item) => item.id === filament.id ? { ...item, spool_count: Math.max(0, Number(e.target.value)) } : item))} onBlur={() => saveFilament(filament)} /> : filament.spool_count}</td>
+                      <td>{role === "admin" ? <input className="table-number" type="number" min="0" value={filament.grams_available} onChange={(e) => setFilaments((items) => items.map((item) => item.id === filament.id ? { ...item, grams_available: Math.max(0, Number(e.target.value)) } : item))} onBlur={() => saveFilament(filament)} /> : filament.grams_available}</td>
+                      <td>{role === "admin" ? <label className="access-toggle"><input type="checkbox" checked={filament.in_stock} onChange={(e) => { const updated = { ...filament, in_stock: e.target.checked }; setFilaments((items) => items.map((item) => item.id === filament.id ? updated : item)); saveFilament(updated); }} /> In stock</label> : <span className={`pill ${filament.in_stock ? "printing" : "cancelled"}`}>{filament.in_stock ? "In stock" : "Out"}</span>}</td>
+                      <td>{role === "admin" ? <input className="inventory-input" value={filament.notes} onChange={(e) => setFilaments((items) => items.map((item) => item.id === filament.id ? { ...item, notes: e.target.value } : item))} onBlur={() => saveFilament(filament)} /> : filament.notes || "—"}</td>
+                      {role === "admin" && <td><button className="btn btn-deny table-save" type="button" onClick={() => deleteFilament(filament.id)}>Remove</button></td>}
+                    </tr>
+                  ))}
+                </tbody></table></div>
+              </article>
             </div>
           )}
           {activeTab === "Discounts" && role === "admin" && (
