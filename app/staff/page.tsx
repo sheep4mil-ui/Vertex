@@ -961,7 +961,7 @@ export default function Staff() {
               <article className="panel">
                 <div className="hiring-head">
                   <div><p className="eyebrow">Administrator only</p><h2>Job applications</h2><p className="panel-copy">Review résumé-style applications and update each candidate&apos;s hiring stage.</p></div>
-                  <a className="btn btn-dark" href="../apply" target="_blank" rel="noreferrer">Open hiring page <ArrowRight size={16} /></a>
+                  <a className="btn btn-dark" href="../apply/" target="_blank" rel="noreferrer">Open hiring page <ArrowRight size={16} /></a>
                 </div>
                 {hiringError && <div className="form-error">Hiring system is not active: {hiringError}. Run <strong>supabase/hiring.sql</strong> in the Supabase SQL Editor.</div>}
                 {saved.startsWith("Hiring error") && <div className="form-error">{saved}</div>}
