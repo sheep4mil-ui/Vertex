@@ -74,6 +74,7 @@ type Filament = { id: string; material: string; color: string; spool_count: numb
 
 export default function Staff() {
   const [logged, setLogged] = useState(false);
+  const [staffUserId, setStaffUserId] = useState("");
   const [role, setRole] = useState<"employee" | "admin">("employee");
   const [staffLevel, setStaffLevel] = useState("handout");
   const [staffRoles, setStaffRoles] = useState<string[]>([]);
@@ -125,10 +126,12 @@ export default function Staff() {
   const totalTeamPayments = paymentRows.reduce((sum, row) => sum + row.count * row.baseAmount * revenueMultiplier, 0);
   const moneyRemaining = monthlyRevenue - expenseReserve - totalTeamPayments;
 
-  async function refreshOrders() {
+  async function refreshOrders(assignedUserId: string | null = role === "employee" ? staffUserId : null) {
     const supabase = getSupabase();
     if (!supabase) return;
-    const { data } = await supabase.from("orders").select("id,tracking_code,customer_name,customer_email,customer_phone,shipping_address,material,quantity,details,model_url,status,assigned_to,quoted_cents,update_preference,created_at").not("status", "in", "(completed,cancelled)").order("created_at", { ascending: false });
+    let query = supabase.from("orders").select("id,tracking_code,customer_name,customer_email,customer_phone,shipping_address,material,quantity,details,model_url,status,assigned_to,quoted_cents,update_preference,created_at").not("status", "in", "(completed,cancelled)").order("created_at", { ascending: false });
+    if (assignedUserId) query = query.eq("assigned_to", assignedUserId);
+    const { data } = await query;
     const latestOrders = (data || []) as Order[];
     setOrders(latestOrders);
     setSelectedOrder((current) => current ? latestOrders.find((order) => order.id === current.id) || null : null);
@@ -175,9 +178,10 @@ export default function Staff() {
       return false;
     }
     setRole(profile.level === "admin" ? "admin" : "employee");
+    setStaffUserId(userId);
     setStaffLevel(profile.level);
     setStaffRoles(profile.employee_roles || []);
-    await refreshOrders();
+    await refreshOrders(profile.level === "admin" ? null : userId);
     const { data: announcementData } = await supabase
       .from("announcements")
       .select("id,subject,message,created_at")
@@ -252,6 +256,7 @@ export default function Staff() {
     const supabase = getSupabase();
     await supabase?.auth.signOut();
     setLogged(false);
+    setStaffUserId("");
     setOrders([]);
     setPassword("");
     setActiveTab("Orders");
