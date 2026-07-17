@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import {
   ArrowRight,
   CalendarDays,
+  DollarSign,
   Mail,
   MessageSquare,
   Settings,
@@ -12,12 +13,13 @@ import {
 import { getSupabase } from "@/lib/supabase";
 
 type Tab =
-  "Orders" | "Customers" | "Team" | "Pricing" | "Discounts" | "Messages" | "Email Center" | "Settings";
+  "Orders" | "Customers" | "Team" | "Pricing" | "Payments" | "Discounts" | "Messages" | "Email Center" | "Settings";
 const adminTabs: Tab[] = [
   "Orders",
   "Customers",
   "Team",
   "Pricing",
+  "Payments",
   "Discounts",
   "Messages",
   "Email Center",
@@ -59,6 +61,7 @@ type TeamMember = {
   employee_discount_percent: number;
   active: boolean;
 };
+type PaymentRow = { role: string; count: number; baseAmount: number };
 
 export default function Staff() {
   const [logged, setLogged] = useState(false);
@@ -93,6 +96,18 @@ export default function Staff() {
   const [modelingHours, setModelingHours] = useState(0);
   const gramRate = priceMaterial === "PLA" ? 0.15 : 0.25;
   const estimatedPrice = 5 + estimatedGrams * gramRate + estimatedHours * 2 + modelingHours;
+  const [monthlyRevenue, setMonthlyRevenue] = useState(205);
+  const [expenseReserve, setExpenseReserve] = useState(30);
+  const [paymentRows, setPaymentRows] = useState<PaymentRow[]>([
+    { role: "Printer", count: 2, baseAmount: 30 },
+    { role: "Handout", count: 0, baseAmount: 10 },
+    { role: "Order Taker", count: 0, baseAmount: 15 },
+    { role: "Modeler", count: 0, baseAmount: 25 },
+    { role: "Social Management", count: 0, baseAmount: 15 },
+  ]);
+  const revenueMultiplier = monthlyRevenue / 205;
+  const totalTeamPayments = paymentRows.reduce((sum, row) => sum + row.count * row.baseAmount * revenueMultiplier, 0);
+  const moneyRemaining = monthlyRevenue - expenseReserve - totalTeamPayments;
 
   async function finishLogin(userId: string) {
     const supabase = getSupabase();
@@ -605,6 +620,53 @@ export default function Staff() {
                 </div>
                 <p className="demo-note">Recommended minimum order: $10.</p>
               </article>
+            </div>
+          )}
+          {activeTab === "Payments" && role === "admin" && (
+            <div className="payment-layout">
+              <article className="panel">
+                <p className="eyebrow">Admin planning tool</p>
+                <h2>Monthly Team Payments</h2>
+                <p className="panel-copy">Each role&rsquo;s payment scales automatically from your $205 monthly revenue plan. This calculator does not send money.</p>
+                <div className="grid2">
+                  <div className="field">
+                    <label htmlFor="monthly-revenue">Monthly revenue</label>
+                    <input id="monthly-revenue" type="number" min="0" step="0.01" value={monthlyRevenue} onChange={(e) => setMonthlyRevenue(Math.max(0, Number(e.target.value)))} />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="expense-reserve">Company expense reserve</label>
+                    <input id="expense-reserve" type="number" min="0" step="0.01" value={expenseReserve} onChange={(e) => setExpenseReserve(Math.max(0, Number(e.target.value)))} />
+                  </div>
+                </div>
+                <div className="payment-table-wrap">
+                  <table className="table payment-table">
+                    <thead><tr><th>Role</th><th>People</th><th>Base at $205</th><th>Each this month</th><th>Role total</th></tr></thead>
+                    <tbody>
+                      {paymentRows.map((row, index) => (
+                        <tr key={row.role}>
+                          <td>{row.role}</td>
+                          <td><input className="table-number" aria-label={`${row.role} people`} type="number" min="0" step="1" value={row.count} onChange={(e) => setPaymentRows((rows) => rows.map((item, itemIndex) => itemIndex === index ? { ...item, count: Math.max(0, Math.floor(Number(e.target.value))) } : item))} /></td>
+                          <td>${row.baseAmount.toFixed(2)}</td>
+                          <td><strong>${(row.baseAmount * revenueMultiplier).toFixed(2)}</strong></td>
+                          <td><strong>${(row.count * row.baseAmount * revenueMultiplier).toFixed(2)}</strong></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="demo-note">Formula: base payment × monthly revenue ÷ $205. Change the People count to match who filled each role this month.</p>
+              </article>
+              <aside className="panel payment-summary">
+                <span className="panel-icon"><DollarSign size={22} /></span>
+                <h2>Monthly summary</h2>
+                <dl>
+                  <div><dt>Revenue</dt><dd>${monthlyRevenue.toFixed(2)}</dd></div>
+                  <div><dt>Company reserve</dt><dd>−${expenseReserve.toFixed(2)}</dd></div>
+                  <div><dt>Team payments</dt><dd>−${totalTeamPayments.toFixed(2)}</dd></div>
+                  <div className="payment-balance"><dt>Money remaining</dt><dd className={moneyRemaining < 0 ? "negative" : "positive"}>${moneyRemaining.toFixed(2)}</dd></div>
+                </dl>
+                <p className={moneyRemaining < 0 ? "payment-warning" : "payment-ok"}>{moneyRemaining < 0 ? "The plan is over budget. Lower a payment or increase the revenue amount." : "This plan fits within the entered monthly revenue."}</p>
+              </aside>
             </div>
           )}
           {activeTab === "Discounts" && role === "admin" && (
