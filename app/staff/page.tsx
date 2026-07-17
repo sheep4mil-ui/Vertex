@@ -142,6 +142,7 @@ export default function Staff() {
       .select(
         "id,tracking_code,customer_name,customer_email,customer_phone,shipping_address,material,quantity,details,model_url,status,assigned_to,quoted_cents,update_preference,created_at",
       )
+      .neq("status", "completed")
       .order("created_at", { ascending: false });
     const { data } = await query;
     setOrders((data || []) as Order[]);
@@ -350,8 +351,13 @@ export default function Staff() {
       setSaved(`Order error: ${error.message}`);
       return false;
     }
-    setOrders((current) => current.map((order) => order.id === orderId ? { ...order, ...data } : order));
-    setSelectedOrder((current) => current?.id === orderId ? { ...current, ...data } : current);
+    if (data.status === "completed") {
+      setOrders((current) => current.filter((order) => order.id !== orderId));
+      setSelectedOrder(null);
+    } else {
+      setOrders((current) => current.map((order) => order.id === orderId ? { ...order, ...data } : order));
+      setSelectedOrder((current) => current?.id === orderId ? { ...current, ...data } : current);
+    }
     setSaved(successMessage);
     return true;
   }
@@ -593,7 +599,8 @@ export default function Staff() {
                       {!['cancelled', 'completed'].includes(selectedOrder.status) && <div className="field completion-revenue"><label htmlFor="final-revenue">Quote / final revenue</label><div className="money-input"><span>$</span><input id="final-revenue" type="number" min="0" step="0.01" value={(selectedOrder.quoted_cents || 0) / 100} onChange={(e) => setSelectedOrder({ ...selectedOrder, quoted_cents: Math.round(Math.max(0, Number(e.target.value)) * 100) })} /></div></div>}
                       {!['cancelled', 'completed'].includes(selectedOrder.status) && <button className="btn btn-light" type="button" onClick={() => updateOrder(selectedOrder.id, { status: "quoted", quoted_cents: selectedOrder.quoted_cents ?? 0 }, "Order quote")}>Save quote</button>}
                       {!['cancelled', 'completed'].includes(selectedOrder.status) && <button className="btn btn-light" type="button" onClick={() => saveQuoteAndOpenGmail(selectedOrder, selectedOrder.quoted_cents ?? 0)}>Save quote &amp; open Gmail</button>}
-                      {!['requested', 'cancelled', 'completed'].includes(selectedOrder.status) && <button className="btn btn-dark" type="button" onClick={() => { if (window.confirm(`Mark order #${selectedOrder.tracking_code} completed at $${((selectedOrder.quoted_cents || 0) / 100).toFixed(2)}?`)) updateOrder(selectedOrder.id, { status: "completed", quoted_cents: selectedOrder.quoted_cents ?? 0 }, "Order completed"); }}>Mark completed</button>}
+                      {!['requested', 'cancelled', 'completed', 'shipped'].includes(selectedOrder.status) && <button className="btn btn-light" type="button" onClick={() => { if (window.confirm(`Confirm shipping is complete for order #${selectedOrder.tracking_code}?`)) updateOrder(selectedOrder.id, { status: "shipped" }, "Shipping complete"); }}>Mark shipping complete</button>}
+                      {selectedOrder.status === 'shipped' && <button className="btn btn-dark" type="button" onClick={() => { if (window.confirm(`Mark order #${selectedOrder.tracking_code} completed at $${((selectedOrder.quoted_cents || 0) / 100).toFixed(2)}?`)) updateOrder(selectedOrder.id, { status: "completed", quoted_cents: selectedOrder.quoted_cents ?? 0 }, "Order completed"); }}>Mark completed</button>}
                     </div>
                   )}
                 </article>
