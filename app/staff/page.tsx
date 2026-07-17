@@ -104,8 +104,9 @@ export default function Staff() {
     { role: "Modeler", count: 0, baseAmount: 25 },
     { role: "Social Management", count: 0, baseAmount: 15 },
   ]);
-  const revenueMultiplier = monthlyRevenue / 205;
-  const expenseReserve = 30 * revenueMultiplier;
+  const lowRevenueMonth = monthlyRevenue < 200;
+  const revenueMultiplier = monthlyRevenue / (lowRevenueMonth ? 175 : 205);
+  const expenseReserve = lowRevenueMonth ? 0 : 30 * revenueMultiplier;
   const totalTeamPayments = paymentRows.reduce((sum, row) => sum + row.count * row.baseAmount * revenueMultiplier, 0);
   const moneyRemaining = monthlyRevenue - expenseReserve - totalTeamPayments;
 
@@ -147,8 +148,19 @@ export default function Staff() {
     setDirectory((directoryData || []) as DirectoryMember[]);
     setMessages((messageData || []) as StaffMessage[]);
     if (profile.level === "admin") {
-      const { data: teamData } = await supabase.rpc("get_vertex_team");
+      const [{ data: teamData }, { data: payrollData }] = await Promise.all([
+        supabase.rpc("get_vertex_team"),
+        supabase.rpc("get_vertex_payroll_plan"),
+      ]);
       setTeamMembers((teamData || []) as TeamMember[]);
+      const payroll = Array.isArray(payrollData) ? payrollData[0] : payrollData;
+      if (payroll) {
+        setMonthlyRevenue(Number(payroll.monthly_revenue));
+        setPaymentRows((rows) => rows.map((row) => ({
+          ...row,
+          count: Number(payroll[`${row.role.toLowerCase().replaceAll(" ", "_")}_count`] ?? row.count),
+        })));
+      }
     }
     setLogged(true);
     return true;
@@ -301,6 +313,22 @@ export default function Staff() {
       p_active: member.active,
     });
     setSaved(error ? `Team error: ${error.message}` : `Employee ${member.email}`);
+  }
+
+  async function savePayrollPlan() {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    setSaved("");
+    const counts = Object.fromEntries(paymentRows.map((row) => [row.role, row.count]));
+    const { error } = await supabase.rpc("save_vertex_payroll_plan", {
+      p_monthly_revenue: monthlyRevenue,
+      p_printer_count: counts.Printer || 0,
+      p_handout_count: counts.Handout || 0,
+      p_order_taker_count: counts["Order Taker"] || 0,
+      p_modeler_count: counts.Modeler || 0,
+      p_social_management_count: counts["Social Management"] || 0,
+    });
+    setSaved(error ? `Payroll error: ${error.message}` : "Monthly payroll plan");
   }
 
   if (!logged)
@@ -627,7 +655,7 @@ export default function Staff() {
               <article className="panel">
                 <p className="eyebrow">Admin planning tool</p>
                 <h2>Monthly Team Payments</h2>
-                <p className="panel-copy">Each role&rsquo;s payment scales automatically from your $205 monthly revenue plan. This calculator does not send money.</p>
+                <p className="panel-copy">Each role&rsquo;s payment scales automatically. Under $200, the reserve becomes $0 and that money increases role payments. This calculator does not send money.</p>
                 <div className="grid2">
                   <div className="field">
                     <label htmlFor="monthly-revenue">Monthly revenue</label>
@@ -654,7 +682,8 @@ export default function Staff() {
                     </tbody>
                   </table>
                 </div>
-                <p className="demo-note">Formula: base amount × monthly revenue ÷ $205. The $30 company reserve and every role payment scale together. Change the People count to match who filled each role this month.</p>
+                <p className="demo-note">{lowRevenueMonth ? "Under $200: the reserve is $0 and role payments scale from the $175 employee-payment baseline." : "At $200 or more: the $30 reserve and role payments scale from the $205 baseline."}</p>
+                <button className="btn btn-dark team-save" type="button" onClick={savePayrollPlan}>Save payroll plan</button>
               </article>
               <aside className="panel payment-summary">
                 <span className="panel-icon"><DollarSign size={22} /></span>
