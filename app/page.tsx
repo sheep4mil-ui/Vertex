@@ -13,6 +13,11 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [policyAccepted, setPolicyAccepted] = useState(false);
+  const [orderType, setOrderType] = useState<"printing" | "cnc" | "pcb_manufacturing" | "pcb_assembly">("printing");
+  const serviceName = orderType === "cnc" ? "CNC"
+    : orderType === "pcb_manufacturing" ? "PCB Manufacturing"
+    : orderType === "pcb_assembly" ? "PCB Assembly"
+    : "3D Printing";
   const [availableFilaments, setAvailableFilaments] = useState<{ material: string; color: string }[]>([]);
   useEffect(() => {
     const supabase = getSupabase();
@@ -38,9 +43,13 @@ export default function Home() {
       p_customer_phone: String(values.get("phone") || ""),
       p_shipping_address: String(values.get("shipping_address") || ""),
       p_update_preference: preference,
-      p_material: String(values.get("material") || ""),
+      p_material: orderType !== "printing"
+        ? `${serviceName} — ${String(values.get("specialty_material") || "Details to be confirmed")}`
+        : String(values.get("material") || ""),
       p_quantity: Number(values.get("quantity") || 1),
-      p_details: String(values.get("custom_description") || ""),
+      p_details: orderType !== "printing"
+        ? `[${serviceName.toUpperCase()} REQUEST — UPPER MANAGEMENT REVIEW REQUIRED]\n${String(values.get("custom_description") || "")}`
+        : String(values.get("custom_description") || ""),
       p_model_url: String(values.get("model_url") || ""),
       p_promo_code: String(values.get("promo_code") || ""),
     };
@@ -192,6 +201,13 @@ export default function Home() {
               </p>
             </aside>
             <form className="form" onSubmit={submit}>
+              <div className="order-type-tabs" role="tablist" aria-label="Order type">
+                <button type="button" role="tab" aria-selected={orderType === "printing"} className={orderType === "printing" ? "active" : ""} onClick={() => setOrderType("printing")}>3D Printing</button>
+                <button type="button" role="tab" aria-selected={orderType === "cnc"} className={orderType === "cnc" ? "active" : ""} onClick={() => setOrderType("cnc")}>CNC Request</button>
+                <button type="button" role="tab" aria-selected={orderType === "pcb_manufacturing"} className={orderType === "pcb_manufacturing" ? "active" : ""} onClick={() => setOrderType("pcb_manufacturing")}>PCB Manufacturing</button>
+                <button type="button" role="tab" aria-selected={orderType === "pcb_assembly"} className={orderType === "pcb_assembly" ? "active" : ""} onClick={() => setOrderType("pcb_assembly")}>PCB Assembly</button>
+              </div>
+              {orderType !== "printing" && <div className="cnc-review-banner"><strong>{serviceName} request</strong><span>Upper management will review this request and either accept or deny it. Availability is limited and this service costs extra.</span></div>}
               {message && (
                 <div
                   className={
@@ -231,13 +247,16 @@ export default function Home() {
                 </div>
               </div>
               <div className="grid2">
-                <div className="field">
+                {orderType === "printing" ? <div className="field">
                   <label htmlFor="material">Material</label>
                   <select id="material" name="material">
                     <option>Not sure—help me choose</option>
                     {availableFilaments.length > 0 ? availableFilaments.map((filament) => <option key={`${filament.material}-${filament.color}`} value={`${filament.material} - ${filament.color}`}>{filament.material} — {filament.color}</option>) : <><option>PLA</option><option>PETG</option><option>TPU / flexible</option></>}
                   </select>
-                </div>
+                </div> : <div className="field">
+                  <label htmlFor="specialty_material">{orderType === "cnc" ? "Preferred CNC material" : orderType === "pcb_manufacturing" ? "PCB material and finish" : "Board and component details"}</label>
+                  <input id="specialty_material" name="specialty_material" required placeholder={orderType === "cnc" ? "Wood, aluminum, plastic, or not sure" : orderType === "pcb_manufacturing" ? "FR-4, layer count, copper weight, surface finish, or not sure" : "PCB type, component sourcing needs, soldering requirements, or not sure"} />
+                </div>}
                 <div className="field">
                   <label htmlFor="quantity">Quantity</label>
                   <input
@@ -250,16 +269,16 @@ export default function Home() {
                   />
                 </div>
               </div>
-              {availableFilaments.length > 0 && <div className="available-filaments"><strong>Colors currently in stock</strong><div>{availableFilaments.map((filament) => <span key={`${filament.material}-${filament.color}`}>{filament.material} · {filament.color}</span>)}</div><small>Inventory is updated by Vertex staff. Availability is confirmed before your quote is accepted.</small></div>}
+              {orderType === "printing" && availableFilaments.length > 0 && <div className="available-filaments"><strong>Colors currently in stock</strong><div>{availableFilaments.map((filament) => <span key={`${filament.material}-${filament.color}`}>{filament.material} · {filament.color}</span>)}</div><small>Inventory is updated by Vertex staff. Availability is confirmed before your quote is accepted.</small></div>}
               <div className="field">
                 <label htmlFor="custom_description">
-                  Custom order description
+                  {orderType === "cnc" ? "CNC project description" : orderType === "pcb_manufacturing" ? "PCB manufacturing description" : orderType === "pcb_assembly" ? "PCB assembly description" : "Custom order description"}
                 </label>
                 <textarea
                   id="custom_description"
                   name="custom_description"
                   required
-                  placeholder="Describe the object, size, color, purpose, special features, and any deadline."
+                  placeholder={orderType === "cnc" ? "Describe the part, dimensions, material, tolerances, purpose, and deadline." : orderType === "pcb_manufacturing" ? "Describe board dimensions, layers, quantity, material, finish, files, and deadline." : orderType === "pcb_assembly" ? "Describe the board, components, sourcing, soldering, testing needs, quantity, and deadline." : "Describe the object, size, color, purpose, special features, and any deadline."}
                 />
                 <small>
                   Use this for a completely custom idea or to explain changes
@@ -268,7 +287,7 @@ export default function Home() {
               </div>
               <div className="field">
                 <label htmlFor="model_url">
-                  Share link to your 3D model (optional)
+                  {orderType === "cnc" ? "Share link to your CNC design or drawing (optional)" : orderType === "pcb_manufacturing" ? "Share link to Gerber/design files (optional)" : orderType === "pcb_assembly" ? "Share link to PCB, BOM, and placement files (optional)" : "Share link to your 3D model (optional)"}
                 </label>
                 <input
                   id="model_url"
