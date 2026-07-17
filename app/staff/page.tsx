@@ -551,7 +551,8 @@ export default function Staff() {
                   </div>
                   <div className="order-detail-grid">
                     <div><span>Customer</span><strong>{selectedOrder.customer_name}</strong><a href={`mailto:${selectedOrder.customer_email}`}>{selectedOrder.customer_email}</a>{selectedOrder.customer_phone && <a href={`tel:${selectedOrder.customer_phone}`}>{selectedOrder.customer_phone}</a>}</div>
-                    <div><span>Print</span><strong>{selectedOrder.quantity} × {selectedOrder.material || "Material not selected"}</strong><p>{selectedOrder.details}</p></div>
+                    <div><span>Print setup</span><strong>{selectedOrder.quantity} × {selectedOrder.material || "Material not selected"}</strong></div>
+                    <div className="custom-print-box"><span>Custom print description</span><p>{selectedOrder.details}</p></div>
                     <div><span>Delivery</span><strong>{selectedOrder.shipping_address ? "Ship order" : "Local pickup"}</strong><p className="shipping-address">{selectedOrder.shipping_address || "No shipping address provided."}</p></div>
                     <div><span>Model file</span>{selectedOrder.model_url ? <a className="btn btn-dark" href={selectedOrder.model_url} target="_blank" rel="noreferrer">Open model link <ArrowRight size={16} /></a> : <p>No model link was provided.</p>}</div>
                   </div>
@@ -561,8 +562,11 @@ export default function Staff() {
                         <label htmlFor="order-assignee">Send order to employee</label>
                         <select id="order-assignee" value={selectedOrder.assigned_to || ""} onChange={(e) => setSelectedOrder({ ...selectedOrder, assigned_to: e.target.value || null })}>
                           <option value="">Unassigned</option>
-                          {directory.filter((member) => member.level !== "admin").map((member) => <option key={member.id} value={member.id}>{member.email} — {member.level.replaceAll("_", " ")}</option>)}
+                          {teamMembers.filter((member) => member.active).map((member) => (
+                            <option key={member.id} value={member.id}>{member.email} — {member.employee_roles?.length ? member.employee_roles.join(", ").replaceAll("_", " ") : "employee"}</option>
+                          ))}
                         </select>
+                        <small>Assignments save online immediately. Staff receive the order when they next sign in, even if they are offline now.</small>
                       </div>
                       <button className="btn btn-light" type="button" onClick={() => updateOrder(selectedOrder.id, { assigned_to: selectedOrder.assigned_to }, "Order assignment")}>Save assignment</button>
                       {selectedOrder.status === "requested" && <button className="btn btn-dark" type="button" onClick={() => updateOrder(selectedOrder.id, { status: "approved", assigned_to: selectedOrder.assigned_to }, "Order accepted")}>Accept order</button>}
