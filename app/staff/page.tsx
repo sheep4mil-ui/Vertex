@@ -998,23 +998,6 @@ export default function Staff() {
           )}
           {activeTab === "Payments" && role === "admin" && (
             <>
-            <article className="panel automatic-revenue">
-              <div>
-                <p className="eyebrow">Automatic revenue tracker</p>
-                <h2>Completed-order revenue</h2>
-                <p className="panel-copy">Saved independently from the payroll plan. Completed discounted quotes add automatically, and processed refunds subtract automatically.</p>
-              </div>
-              <div className="revenue-period">
-                <span>This month</span>
-                <strong>${monthlyRevenue.toFixed(2)}</strong>
-                <small>Starts at $0 each calendar month</small>
-              </div>
-              <div className="revenue-period previous">
-                <span>Last month&rsquo;s final</span>
-                <strong>${previousMonthRevenue.toFixed(2)}</strong>
-                <small>Replaced when the next month begins</small>
-              </div>
-            </article>
             <div className="payment-layout">
               <article className="panel">
                 <p className="eyebrow">Admin planning tool</p>
@@ -1057,6 +1040,23 @@ export default function Staff() {
                 <p className={moneyRemaining < 0 ? "payment-warning" : "payment-ok"}>{moneyRemaining < 0 ? "The plan is over budget. Lower a role payment or complete more orders." : "This plan fits within this month’s completed-order revenue."}</p>
               </aside>
             </div>
+            <article className="panel automatic-revenue">
+              <div>
+                <p className="eyebrow">Automatic revenue tracker</p>
+                <h2>Completed-order revenue</h2>
+                <p className="panel-copy">Saved independently from the payroll plan. Completed discounted quotes add automatically, and processed refunds subtract automatically.</p>
+              </div>
+              <div className="revenue-period">
+                <span>This month&rsquo;s revenue</span>
+                <strong>${monthlyRevenue.toFixed(2)}</strong>
+                <small>Starts at $0 each calendar month</small>
+              </div>
+              <div className="revenue-period previous">
+                <span>Last month&rsquo;s revenue</span>
+                <strong>${previousMonthRevenue.toFixed(2)}</strong>
+                <small>Replaced when the next month begins</small>
+              </div>
+            </article>
             </>
           )}
           {activeTab === "Inventory" && (
