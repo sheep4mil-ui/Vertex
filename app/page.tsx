@@ -13,6 +13,7 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [policyAccepted, setPolicyAccepted] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("arrange_later");
   const [orderType, setOrderType] = useState<"printing" | "cnc" | "pcb_manufacturing" | "metal_printing">("printing");
   const serviceName = orderType === "cnc" ? "CNC"
     : orderType === "pcb_manufacturing" ? "PCB Manufacturing"
@@ -37,6 +38,7 @@ export default function Home() {
       return;
     }
     const preference = String(values.get("contact") || "email");
+    const paypalAccount = String(values.get("paypal_account") || "").trim();
     const specialtyDetails = orderType === "cnc"
       ? [
           "Process: CNC machining",
@@ -63,6 +65,15 @@ export default function Home() {
               `Intended use: ${String(values.get("metal_use") || "Not provided")}`,
             ]
           : [];
+    const customerDescription = String(values.get("custom_description") || "");
+    const paymentDetails = paymentMethod === "paypal"
+      ? `Payment preference: PayPal payment request\nPayPal account: ${paypalAccount}`
+      : paymentMethod === "cash"
+        ? "Payment preference: Cash at pickup or delivery, as arranged with Vertex"
+        : "Payment preference: Arrange with Vertex after quote";
+    const savedDetails = orderType !== "printing"
+      ? `[${serviceName.toUpperCase()} REQUEST — UPPER MANAGEMENT REVIEW REQUIRED]\n${specialtyDetails.join("\n")}\n\n${paymentDetails}\n\nCustomer notes:\n${customerDescription}`
+      : `${customerDescription}\n\n${paymentDetails}`;
     const orderArguments = {
       p_customer_name: String(values.get("name") || ""),
       p_customer_email: String(values.get("email") || ""),
@@ -73,9 +84,7 @@ export default function Home() {
         ? `${serviceName} — ${String(values.get("specialty_material") || "Details to be confirmed")}`
         : String(values.get("material") || ""),
       p_quantity: Number(values.get("quantity") || 1),
-      p_details: orderType !== "printing"
-        ? `[${serviceName.toUpperCase()} REQUEST — UPPER MANAGEMENT REVIEW REQUIRED]\n${specialtyDetails.join("\n")}\n\nCustomer notes:\n${String(values.get("custom_description") || "")}`
-        : String(values.get("custom_description") || ""),
+      p_details: savedDetails,
       p_model_url: String(values.get("model_url") || ""),
       p_promo_code: String(values.get("promo_code") || ""),
     };
@@ -98,6 +107,7 @@ export default function Home() {
       );
       form.reset();
       setPolicyAccepted(false);
+      setPaymentMethod("arrange_later");
     }
     setSending(false);
   }
@@ -415,6 +425,26 @@ export default function Home() {
                   onInput={(e) => (e.currentTarget.value = e.currentTarget.value.toUpperCase().replace(/\s/g, ""))}
                 />
                 <small>Valid codes are applied when Vertex prepares your quote.</small>
+              </div>
+              <div className="payment-choice">
+                <strong>Payment preference</strong>
+                <label>
+                  <input type="radio" name="payment_method" value="arrange_later" checked={paymentMethod === "arrange_later"} onChange={(e) => setPaymentMethod(e.target.value)} />
+                  <span><b>Arrange payment later</b><small>Vertex will provide payment instructions after you accept the quote.</small></span>
+                </label>
+                <label>
+                  <input type="radio" name="payment_method" value="paypal" checked={paymentMethod === "paypal"} onChange={(e) => setPaymentMethod(e.target.value)} />
+                  <span><b>PayPal payment request</b><small>Staff will manually send a PayPal request after the order and final price are approved.</small></span>
+                </label>
+                <label>
+                  <input type="radio" name="payment_method" value="cash" checked={paymentMethod === "cash"} onChange={(e) => setPaymentMethod(e.target.value)} />
+                  <span><b>Cash</b><small>Pay the agreed amount at pickup or delivery after accepting the final quote. Do not mail cash.</small></span>
+                </label>
+                {paymentMethod === "paypal" && <div className="field paypal-account">
+                  <label htmlFor="paypal_account">PayPal email or username</label>
+                  <input id="paypal_account" name="paypal_account" required autoComplete="email" placeholder="name@example.com or @username" />
+                  <small>Double-check this account. Vertex will not charge it automatically, and only staff can see it.</small>
+                </div>}
               </div>
               <label className="order-policy">
                 <input type="checkbox" required checked={policyAccepted} onChange={(e) => setPolicyAccepted(e.target.checked)} />
