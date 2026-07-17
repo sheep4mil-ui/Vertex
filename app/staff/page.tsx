@@ -119,6 +119,9 @@ export default function Staff() {
   const [pricingOrderId, setPricingOrderId] = useState("");
   const gramRate = priceMaterial === "PLA" ? 0.15 : 0.25;
   const estimatedPrice = 5 + estimatedGrams * gramRate + estimatedHours * 2 + modelingHours;
+  const pricingOrder = orders.find((order) => order.id === pricingOrderId);
+  const pricingDiscountPercent = pricingOrder?.promo_percent_off || 0;
+  const discountedEstimatedPrice = estimatedPrice * (1 - pricingDiscountPercent / 100);
   const [monthlyRevenue, setMonthlyRevenue] = useState(205);
   const [paymentRows, setPaymentRows] = useState<PaymentRow[]>([
     { role: "Printer", count: 2, baseAmount: 30 },
@@ -536,7 +539,8 @@ export default function Staff() {
     }
     const quote = (quotedCents / 100).toFixed(2);
     const subject = `Your Vertex quote #${order.tracking_code}`;
-    const body = `Hi ${order.customer_name},\n\nYour Vertex 3D-printing quote for order #${order.tracking_code} is $${quote}.\n\nReply to this email to approve the quote or ask questions. Shipping will be confirmed separately if needed.\n\nThank you,\nVertex 3D Printing`;
+    const discountLine = order.promo_code && order.promo_percent_off ? `\nYour ${order.promo_code} code applied ${order.promo_percent_off}% off.` : "";
+    const body = `Hi ${order.customer_name},\n\nYour Vertex 3D-printing quote for order #${order.tracking_code} is $${quote}.${discountLine}\n\nReply to this email to approve the quote or ask questions. Shipping will be confirmed separately if needed.\n\nThank you,\nVertex 3D Printing`;
     const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(order.customer_email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     if (composeWindow) composeWindow.location.href = gmailUrl;
     else window.open(gmailUrl, "_blank", "noopener,noreferrer");
@@ -940,13 +944,14 @@ export default function Staff() {
                   <small>Custom design work is $1 per hour. Enter 0 when the customer provides a print-ready model.</small>
                 </div>
                 <div className="estimate-total">
-                  <span>Quote before extras</span>
-                  <strong>${estimatedPrice.toFixed(2)}</strong>
+                  <span>{pricingDiscountPercent ? `Final quote after ${pricingDiscountPercent}% promo` : "Quote before extras"}</span>
+                  <strong>${discountedEstimatedPrice.toFixed(2)}</strong>
                 </div>
+                {pricingOrder?.promo_code && <p className="success">Promo code <strong>{pricingOrder.promo_code}</strong>: ${estimatedPrice.toFixed(2)} − ${(estimatedPrice - discountedEstimatedPrice).toFixed(2)} discount</p>}
                 <p className="estimate-formula">$5 setup + ${gramRate.toFixed(2)} × {estimatedGrams}g + $2 × {estimatedHours} print hours + $1 × {modelingHours} modeling hours</p>
                 <small>Shipping, sales tax, unusual materials, and later customer-requested changes are added separately.</small>
-                <button className="btn btn-dark team-save" type="button" disabled={!pricingOrderId} onClick={() => updateOrder(pricingOrderId, { status: "quoted", quoted_cents: Math.round(estimatedPrice * 100) }, "Pricing quote")}>Save quote to selected order</button>
-                <button className="btn btn-light team-save" type="button" disabled={!pricingOrderId} onClick={() => { const order = orders.find((item) => item.id === pricingOrderId); if (order) saveQuoteAndOpenGmail(order, Math.round(estimatedPrice * 100)); }}>Save quote &amp; open Gmail</button>
+                <button className="btn btn-dark team-save" type="button" disabled={!pricingOrderId} onClick={() => updateOrder(pricingOrderId, { status: "quoted", quoted_cents: Math.round(discountedEstimatedPrice * 100) }, "Pricing quote")}>Save quote to selected order</button>
+                <button className="btn btn-light team-save" type="button" disabled={!pricingOrderId} onClick={() => { if (pricingOrder) saveQuoteAndOpenGmail(pricingOrder, Math.round(discountedEstimatedPrice * 100)); }}>Save quote &amp; open Gmail</button>
               </article>
               <article className="panel rate-reference">
                 <h2>Vertex rates</h2>
