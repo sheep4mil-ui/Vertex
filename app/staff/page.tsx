@@ -914,6 +914,25 @@ export default function Staff() {
                 <p className="eyebrow">Staff quote tool</p>
                 <h2>Print price calculator</h2>
                 <p className="panel-copy">Enter the slicer&rsquo;s total filament weight and estimated print time.</p>
+                <div className="pricing-order-list">
+                  <div className="pricing-order-list-head">
+                    <strong>Active orders</strong>
+                    <button className="btn btn-light table-save" type="button" onClick={() => refreshOrders(role === "admin" ? null : staffUserId)}>Refresh</button>
+                  </div>
+                  {orders.filter((order) => !["cancelled", "completed"].includes(order.status)).length === 0 ? (
+                    <p>No active orders are available to your account yet.</p>
+                  ) : orders.filter((order) => !["cancelled", "completed"].includes(order.status)).map((order) => (
+                    <button
+                      type="button"
+                      key={order.id}
+                      className={pricingOrderId === order.id ? "selected" : ""}
+                      onClick={() => setPricingOrderId(order.id)}
+                    >
+                      <span><strong>#{order.tracking_code}</strong>{order.customer_name}</span>
+                      <span><small>{order.status.replaceAll("_", " ")}</small>{order.promo_code && <b>{order.promo_code} · {order.promo_percent_off}% off</b>}</span>
+                    </button>
+                  ))}
+                </div>
                 <div className="field">
                   <label htmlFor="pricing-order">Order to quote</label>
                   <select id="pricing-order" value={pricingOrderId} onChange={(e) => setPricingOrderId(e.target.value)}>
