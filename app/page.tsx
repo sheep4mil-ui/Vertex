@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   Box,
@@ -12,6 +12,12 @@ import { getSupabase } from "@/lib/supabase";
 export default function Home() {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [availableFilaments, setAvailableFilaments] = useState<{ material: string; color: string }[]>([]);
+  useEffect(() => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    supabase.rpc("get_public_filament_inventory").then(({ data }) => setAvailableFilaments((data || []) as { material: string; color: string }[]));
+  }, []);
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSending(true);
@@ -207,9 +213,7 @@ export default function Home() {
                   <label htmlFor="material">Material</label>
                   <select id="material" name="material">
                     <option>Not sure—help me choose</option>
-                    <option>PLA</option>
-                    <option>PETG</option>
-                    <option>TPU / flexible</option>
+                    {availableFilaments.length > 0 ? availableFilaments.map((filament) => <option key={`${filament.material}-${filament.color}`} value={`${filament.material} - ${filament.color}`}>{filament.material} — {filament.color}</option>) : <><option>PLA</option><option>PETG</option><option>TPU / flexible</option></>}
                   </select>
                 </div>
                 <div className="field">
@@ -224,6 +228,7 @@ export default function Home() {
                   />
                 </div>
               </div>
+              {availableFilaments.length > 0 && <div className="available-filaments"><strong>Colors currently in stock</strong><div>{availableFilaments.map((filament) => <span key={`${filament.material}-${filament.color}`}>{filament.material} · {filament.color}</span>)}</div><small>Inventory is updated by Vertex staff. Availability is confirmed before your quote is accepted.</small></div>}
               <div className="field">
                 <label htmlFor="custom_description">
                   Custom order description
