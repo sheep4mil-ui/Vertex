@@ -215,6 +215,14 @@ export default function Home() {
               contact you with availability and a quote.
             </p>
           </div>
+          <div className="public-hiring-banner">
+            <div>
+              <p className="eyebrow">Vertex is hiring</p>
+              <h3>Interested in joining the team?</h3>
+              <span>Complete our résumé-style application. No staff account or sign-in is required.</span>
+            </div>
+            <a className="btn btn-dark" href="./apply/">Apply for a Vertex position <ArrowRight size={16} /></a>
+          </div>
           <div className="order-wrap">
             <aside className="order-note">
               <h3>Stay in the loop.</h3>
@@ -236,11 +244,6 @@ export default function Home() {
                 request and either accept or deny it. Availability and pricing
                 are confirmed before an accepted order moves forward.
               </p>
-              <div className="careers-callout">
-                <strong>Want to join Vertex?</strong>
-                <span>Send us a résumé-style application for an available team position.</span>
-                <a className="btn btn-dark" href="./apply/">Apply for a position <ArrowRight size={16} /></a>
-              </div>
             </aside>
             <form className="form" onSubmit={submit}>
               <div className="order-type-tabs" role="tablist" aria-label="Order type">
