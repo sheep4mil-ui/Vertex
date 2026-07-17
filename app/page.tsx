@@ -285,6 +285,10 @@ export default function Home() {
                 />
                 <small>Valid codes are applied when Vertex prepares your quote.</small>
               </div>
+              <label className="order-policy">
+                <input type="checkbox" required />
+                <span>I understand custom orders are final sale. Vertex quality-checks prints and reprints failed items before delivery. Vertex does not offer refunds or replacements for damage that happens after pickup or while handled by a shipping carrier.</span>
+              </label>
               <button className="btn btn-dark" type="submit" disabled={sending}>
                 {sending ? "Saving order…" : "Send quote request"}{" "}
                 <ArrowRight size={17} />

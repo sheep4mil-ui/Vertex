@@ -14,9 +14,6 @@ export default function TrackOrder() {
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [trackedEmail, setTrackedEmail] = useState("");
-  const [refundReason, setRefundReason] = useState("");
-  const [refundMessage, setRefundMessage] = useState("");
 
   async function track(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -25,7 +22,6 @@ export default function TrackOrder() {
     setResult(null);
     const values = new FormData(e.currentTarget);
     const customerEmail = String(values.get("email") || "");
-    setTrackedEmail(customerEmail);
     const supabase = getSupabase();
     if (!supabase) {
       setError("Database connection is not active yet.");
@@ -41,23 +37,6 @@ export default function TrackOrder() {
       setError("No order matched that tracking number and email.");
     else setResult(data[0] as Result);
     setLoading(false);
-  }
-
-  async function requestRefund(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const supabase = getSupabase();
-    if (!supabase || !result) return;
-    setRefundMessage("");
-    const { error } = await supabase.rpc("request_refund", {
-      p_tracking_code: result.tracking_code,
-      p_customer_email: trackedEmail,
-      p_reason: refundReason,
-    });
-    if (error) setRefundMessage(`Refund request error: ${error.message}`);
-    else {
-      setRefundReason("");
-      setRefundMessage("Refund request submitted. Vertex staff will review it.");
-    }
   }
 
   return (
@@ -83,7 +62,6 @@ export default function TrackOrder() {
         </form>
         {error && <div className="form-error">{error}</div>}
         {result && (
-          <>
           <div className="tracking-demo">
             <PackageSearch size={26} />
             <div>
@@ -92,18 +70,6 @@ export default function TrackOrder() {
               <small>{result.tracking_code}</small>
             </div>
           </div>
-          {result.status === "completed" && (
-            <form className="refund-request" onSubmit={requestRefund}>
-              <h2>Request a refund</h2>
-              <div className="field">
-                <label htmlFor="refund-reason">Reason for refund</label>
-                <textarea id="refund-reason" required minLength={5} value={refundReason} onChange={(e) => setRefundReason(e.target.value)} />
-              </div>
-              {refundMessage && <div className={refundMessage.startsWith("Refund request error") ? "form-error" : "success"}>{refundMessage}</div>}
-              <button className="btn btn-light" type="submit">Submit refund request</button>
-            </form>
-          )}
-          </>
         )}
         <a className="back-home" href="../#order">← Back to order page</a>
       </div>
