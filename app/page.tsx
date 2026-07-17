@@ -69,7 +69,7 @@ export default function Home() {
     const paymentDetails = paymentMethod === "paypal"
       ? `Payment preference: PayPal payment request\nPayPal account: ${paypalAccount}`
       : paymentMethod === "cash"
-        ? "Payment preference: Cash at pickup or delivery, as arranged with Vertex"
+        ? "Payment preference: Cash paid in full before materials are ordered or production begins"
         : "Payment preference: Arrange with Vertex after quote";
     const savedDetails = orderType !== "printing"
       ? `[${serviceName.toUpperCase()} REQUEST — UPPER MANAGEMENT REVIEW REQUIRED]\n${specialtyDetails.join("\n")}\n\n${paymentDetails}\n\nCustomer notes:\n${customerDescription}`
@@ -438,7 +438,7 @@ export default function Home() {
                 </label>
                 <label>
                   <input type="radio" name="payment_method" value="cash" checked={paymentMethod === "cash"} onChange={(e) => setPaymentMethod(e.target.value)} />
-                  <span><b>Cash</b><small>Pay the agreed amount at pickup or delivery after accepting the final quote. Do not mail cash.</small></span>
+                  <span><b>Cash before production</b><small>After accepting the final quote, arrange a safe in-person payment with Vertex. Full payment is required before materials are ordered or work begins. Do not mail cash.</small></span>
                 </label>
                 {paymentMethod === "paypal" && <div className="field paypal-account">
                   <label htmlFor="paypal_account">PayPal email or username</label>
