@@ -60,8 +60,8 @@ export default function Home() {
         <nav className="navlinks">
           <a href="#process">How it works</a>
           <a href="#order">Order</a>
-          <a href="staff">Staff</a>
-          <a className="btn btn-dark" href="#order">
+          <a className="btn btn-light staff-signin" href="staff">Staff sign in</a>
+          <a className="btn btn-dark nav-order-button" href="#order">
             Start a print <ArrowRight size={17} />
           </a>
         </nav>
