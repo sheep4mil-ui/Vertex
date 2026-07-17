@@ -33,8 +33,12 @@ type Order = {
   customer_email: string;
   customer_phone: string | null;
   shipping_address: string | null;
+  material: string | null;
+  quantity: number;
   details: string;
+  model_url: string | null;
   status: string;
+  assigned_to: string | null;
   update_preference: string;
   created_at: string;
 };
@@ -76,6 +80,8 @@ export default function Staff() {
   const [authError, setAuthError] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedCustomerEmail, setSelectedCustomerEmail] = useState("");
   const [emailTemplate, setEmailTemplate] = useState("quote");
   const [recipient, setRecipient] = useState("");
   const [customerName, setCustomerName] = useState("");
@@ -132,7 +138,7 @@ export default function Staff() {
     const query = supabase
       .from("orders")
       .select(
-        "id,tracking_code,customer_name,customer_email,customer_phone,shipping_address,details,status,update_preference,created_at",
+        "id,tracking_code,customer_name,customer_email,customer_phone,shipping_address,material,quantity,details,model_url,status,assigned_to,update_preference,created_at",
       )
       .order("created_at", { ascending: false });
     const { data } = await query;
@@ -333,6 +339,20 @@ export default function Staff() {
     setSaved(error ? `Payroll error: ${error.message}` : "Monthly payroll plan");
   }
 
+  async function updateOrder(orderId: string, changes: Partial<Pick<Order, "status" | "assigned_to">>, successMessage: string) {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    setSaved("");
+    const { data, error } = await supabase.from("orders").update({ ...changes, updated_at: new Date().toISOString() }).eq("id", orderId).select("id,status,assigned_to").single();
+    if (error) {
+      setSaved(`Order error: ${error.message}`);
+      return;
+    }
+    setOrders((current) => current.map((order) => order.id === orderId ? { ...order, ...data } : order));
+    setSelectedOrder((current) => current?.id === orderId ? { ...current, ...data } : current);
+    setSaved(successMessage);
+  }
+
   if (!logged)
     return (
       <main className="login">
@@ -501,12 +521,13 @@ export default function Staff() {
                       <th>Status</th>
                       {role === "admin" && <th>Shipping</th>}
                       <th>Updates</th>
+                      <th></th>
                     </tr>
                   </thead>
                   <tbody>
                     {orders.length === 0 ? (
                       <tr>
-                        <td colSpan={role === "admin" ? 6 : 4}>No orders found.</td>
+                        <td colSpan={role === "admin" ? 7 : 5}>No orders found.</td>
                       </tr>
                     ) : orders.map((order) => (
                       <tr key={order.id}>
@@ -516,14 +537,43 @@ export default function Staff() {
                         <td><span className={`pill ${order.status}`}>{order.status.replaceAll("_", " ")}</span></td>
                         {role === "admin" && <td className="shipping-address">{order.shipping_address || "Local pickup"}</td>}
                         <td>{order.update_preference}</td>
+                        <td><button className="btn btn-light table-save" type="button" onClick={() => setSelectedOrder(order)}>View details</button></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </article>
+              {selectedOrder && (
+                <article className="panel order-details">
+                  <div className="order-details-head">
+                    <div><p className="eyebrow">Order #{selectedOrder.tracking_code}</p><h2>Custom print details</h2></div>
+                    <button className="btn btn-light" type="button" onClick={() => setSelectedOrder(null)}>Close</button>
+                  </div>
+                  <div className="order-detail-grid">
+                    <div><span>Customer</span><strong>{selectedOrder.customer_name}</strong><a href={`mailto:${selectedOrder.customer_email}`}>{selectedOrder.customer_email}</a>{selectedOrder.customer_phone && <a href={`tel:${selectedOrder.customer_phone}`}>{selectedOrder.customer_phone}</a>}</div>
+                    <div><span>Print</span><strong>{selectedOrder.quantity} × {selectedOrder.material || "Material not selected"}</strong><p>{selectedOrder.details}</p></div>
+                    <div><span>Delivery</span><strong>{selectedOrder.shipping_address ? "Ship order" : "Local pickup"}</strong><p className="shipping-address">{selectedOrder.shipping_address || "No shipping address provided."}</p></div>
+                    <div><span>Model file</span>{selectedOrder.model_url ? <a className="btn btn-dark" href={selectedOrder.model_url} target="_blank" rel="noreferrer">Open model link <ArrowRight size={16} /></a> : <p>No model link was provided.</p>}</div>
+                  </div>
+                  {role === "admin" && (
+                    <div className="order-actions">
+                      <div className="field">
+                        <label htmlFor="order-assignee">Send order to employee</label>
+                        <select id="order-assignee" value={selectedOrder.assigned_to || ""} onChange={(e) => setSelectedOrder({ ...selectedOrder, assigned_to: e.target.value || null })}>
+                          <option value="">Unassigned</option>
+                          {directory.filter((member) => member.level !== "admin").map((member) => <option key={member.id} value={member.id}>{member.email} — {member.level.replaceAll("_", " ")}</option>)}
+                        </select>
+                      </div>
+                      <button className="btn btn-light" type="button" onClick={() => updateOrder(selectedOrder.id, { assigned_to: selectedOrder.assigned_to }, "Order assignment")}>Save assignment</button>
+                      {selectedOrder.status === "requested" && <button className="btn btn-dark" type="button" onClick={() => updateOrder(selectedOrder.id, { status: "approved", assigned_to: selectedOrder.assigned_to }, "Order accepted")}>Accept order</button>}
+                    </div>
+                  )}
+                </article>
+              )}
             </>
           )}
           {activeTab === "Customers" && (
+            <>
             <article className="panel">
               <span className="panel-icon">
                 <Users size={22} />
@@ -536,22 +586,56 @@ export default function Staff() {
                     <th>Contact</th>
                     <th>Orders</th>
                     <th>Last order</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {customers.length === 0 ? (
-                    <tr><td colSpan={4}>No real customers found yet. Customers appear here after they place an order.</td></tr>
+                    <tr><td colSpan={5}>No real customers found yet. Customers appear here after they place an order.</td></tr>
                   ) : customers.map((customer) => (
                     <tr key={customer.email.toLowerCase()}>
                       <td>{customer.name}</td>
                       <td><a href={`mailto:${customer.email}`}>{customer.email}</a>{customer.phone && <><br /><a href={`tel:${customer.phone}`}>{customer.phone}</a></>}</td>
                       <td>{customer.orderCount}</td>
                       <td>#{customer.lastTrackingCode}<br /><small>{new Date(customer.lastOrderDate).toLocaleDateString()}</small></td>
+                      <td><button className="btn btn-light table-save" type="button" onClick={() => setSelectedCustomerEmail(customer.email.toLowerCase())}>View customer</button></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </article>
+            {selectedCustomerEmail && (() => {
+              const customer = customers.find((item) => item.email.toLowerCase() === selectedCustomerEmail);
+              const customerOrders = orders.filter((order) => order.customer_email.toLowerCase() === selectedCustomerEmail);
+              if (!customer) return null;
+              return (
+                <article className="panel order-details customer-details">
+                  <div className="order-details-head">
+                    <div><p className="eyebrow">Real customer record</p><h2>{customer.name}</h2></div>
+                    <button className="btn btn-light" type="button" onClick={() => setSelectedCustomerEmail("")}>Close</button>
+                  </div>
+                  <div className="customer-contact">
+                    <a href={`mailto:${customer.email}`}>{customer.email}</a>
+                    {customer.phone && <a href={`tel:${customer.phone}`}>{customer.phone}</a>}
+                    <strong>{customer.orderCount} order{customer.orderCount === 1 ? "" : "s"}</strong>
+                  </div>
+                  <div className="customer-order-list">
+                    {customerOrders.map((order) => (
+                      <div key={order.id}>
+                        <div><strong>#{order.tracking_code}</strong><span className={`pill ${order.status}`}>{order.status.replaceAll("_", " ")}</span></div>
+                        <p>{order.quantity} × {order.material || "Unselected material"} — {order.details}</p>
+                        <p className="shipping-address"><b>Delivery:</b> {order.shipping_address || "Local pickup"}</p>
+                        <div className="actions">
+                          {order.model_url && <a className="btn btn-light" href={order.model_url} target="_blank" rel="noreferrer">Open model</a>}
+                          <button className="btn btn-dark" type="button" onClick={() => { setSelectedOrder(order); setActiveTab("Orders"); }}>Manage order</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              );
+            })()}
+            </>
           )}
           {activeTab === "Team" && (
             <article className="panel">
