@@ -97,7 +97,6 @@ export default function Staff() {
   const gramRate = priceMaterial === "PLA" ? 0.15 : 0.25;
   const estimatedPrice = 5 + estimatedGrams * gramRate + estimatedHours * 2 + modelingHours;
   const [monthlyRevenue, setMonthlyRevenue] = useState(205);
-  const [expenseReserve, setExpenseReserve] = useState(30);
   const [paymentRows, setPaymentRows] = useState<PaymentRow[]>([
     { role: "Printer", count: 2, baseAmount: 30 },
     { role: "Handout", count: 0, baseAmount: 10 },
@@ -106,6 +105,7 @@ export default function Staff() {
     { role: "Social Management", count: 0, baseAmount: 15 },
   ]);
   const revenueMultiplier = monthlyRevenue / 205;
+  const expenseReserve = 30 * revenueMultiplier;
   const totalTeamPayments = paymentRows.reduce((sum, row) => sum + row.count * row.baseAmount * revenueMultiplier, 0);
   const moneyRemaining = monthlyRevenue - expenseReserve - totalTeamPayments;
 
@@ -634,8 +634,8 @@ export default function Staff() {
                     <input id="monthly-revenue" type="number" min="0" step="0.01" value={monthlyRevenue} onChange={(e) => setMonthlyRevenue(Math.max(0, Number(e.target.value)))} />
                   </div>
                   <div className="field">
-                    <label htmlFor="expense-reserve">Company expense reserve</label>
-                    <input id="expense-reserve" type="number" min="0" step="0.01" value={expenseReserve} onChange={(e) => setExpenseReserve(Math.max(0, Number(e.target.value)))} />
+                    <label htmlFor="expense-reserve">Scaled company expense reserve</label>
+                    <input id="expense-reserve" type="text" value={`$${expenseReserve.toFixed(2)}`} readOnly />
                   </div>
                 </div>
                 <div className="payment-table-wrap">
@@ -654,7 +654,7 @@ export default function Staff() {
                     </tbody>
                   </table>
                 </div>
-                <p className="demo-note">Formula: base payment × monthly revenue ÷ $205. Change the People count to match who filled each role this month.</p>
+                <p className="demo-note">Formula: base amount × monthly revenue ÷ $205. The $30 company reserve and every role payment scale together. Change the People count to match who filled each role this month.</p>
               </article>
               <aside className="panel payment-summary">
                 <span className="panel-icon"><DollarSign size={22} /></span>
