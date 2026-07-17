@@ -425,7 +425,7 @@ export default function Staff() {
 
   async function deleteFilament(id: string) {
     const supabase = getSupabase();
-    if (!supabase || !window.confirm("Remove this filament from inventory?")) return;
+    if (!supabase) return;
     const { error } = await supabase.from("filament_inventory").delete().eq("id", id);
     if (error) setSaved(`Inventory error: ${error.message}`);
     else { setFilaments((current) => current.filter((item) => item.id !== id)); setSaved("Filament removed"); }
