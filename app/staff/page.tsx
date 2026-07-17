@@ -536,7 +536,7 @@ export default function Staff() {
 
   async function saveQuoteAndOpenGmail(order: Order, quotedCents: number, receivingEmail: string = order.customer_email) {
     const composeWindow = window.open("about:blank", "_blank");
-    const savedQuote = await updateOrder(order.id, { status: "quoted", quoted_cents: quotedCents }, "Order quote");
+    const savedQuote = await updateOrder(order.id, { quoted_cents: quotedCents }, "Order quote");
     if (!savedQuote) {
       composeWindow?.close();
       return;
@@ -771,9 +771,9 @@ export default function Staff() {
                       <button className="btn btn-light" disabled={['requested', 'quoted'].includes(selectedOrder.status)} type="button" onClick={() => updateOrder(selectedOrder.id, { assigned_to: selectedOrder.assigned_to }, "Order assignment")}>Save assignment</button>
                       {['requested', 'quoted'].includes(selectedOrder.status) && <button className="btn btn-dark" type="button" onClick={() => updateOrder(selectedOrder.id, { status: "approved" }, "Order accepted")}>Accept order</button>}
                       {!['cancelled', 'completed'].includes(selectedOrder.status) && <button className="btn btn-deny" type="button" onClick={() => { if (window.confirm(`Deny order #${selectedOrder.tracking_code}? This will cancel it and remove its assignment.`)) updateOrder(selectedOrder.id, { status: "cancelled", assigned_to: null }, "Order denied"); }}>Deny order</button>}
-                      {!['cancelled', 'completed'].includes(selectedOrder.status) && <div className="field completion-revenue"><label htmlFor="final-revenue">Quote / final revenue</label><div className="money-input"><span>$</span><input id="final-revenue" type="number" min="0" step="0.01" value={(selectedOrder.quoted_cents || 0) / 100} onChange={(e) => setSelectedOrder({ ...selectedOrder, quoted_cents: Math.round(Math.max(0, Number(e.target.value)) * 100) })} /></div></div>}
-                      {!['cancelled', 'completed'].includes(selectedOrder.status) && <button className="btn btn-light" type="button" onClick={() => updateOrder(selectedOrder.id, { status: "quoted", quoted_cents: selectedOrder.quoted_cents ?? 0 }, "Order quote")}>Save quote</button>}
-                      {!['cancelled', 'completed'].includes(selectedOrder.status) && <button className="btn btn-light" type="button" onClick={() => saveQuoteAndOpenGmail(selectedOrder, selectedOrder.quoted_cents ?? 0)}>Save quote &amp; open Gmail</button>}
+                      {['approved', 'printing', 'ready', 'shipped'].includes(selectedOrder.status) && <div className="field completion-revenue"><label htmlFor="final-revenue">Quote / final revenue</label><div className="money-input"><span>$</span><input id="final-revenue" type="number" min="0" step="0.01" value={(selectedOrder.quoted_cents || 0) / 100} onChange={(e) => setSelectedOrder({ ...selectedOrder, quoted_cents: Math.round(Math.max(0, Number(e.target.value)) * 100) })} /></div></div>}
+                      {['approved', 'printing', 'ready', 'shipped'].includes(selectedOrder.status) && <button className="btn btn-light" type="button" onClick={() => updateOrder(selectedOrder.id, { quoted_cents: selectedOrder.quoted_cents ?? 0 }, "Order quote")}>Save quote</button>}
+                      {['approved', 'printing', 'ready', 'shipped'].includes(selectedOrder.status) && <button className="btn btn-light" type="button" onClick={() => saveQuoteAndOpenGmail(selectedOrder, selectedOrder.quoted_cents ?? 0)}>Save quote &amp; open Gmail</button>}
                       {selectedOrder.status === 'approved' && <button className="btn btn-dark" type="button" onClick={() => updateOrder(selectedOrder.id, { status: "printing" }, "Order marked as printing")}>Mark as printing</button>}
                       {selectedOrder.status === 'printing' && <button className="btn btn-light" type="button" onClick={() => { if (window.confirm(`Confirm shipping is complete for order #${selectedOrder.tracking_code}?`)) updateOrder(selectedOrder.id, { status: "shipped" }, "Shipping complete"); }}>Mark shipping complete</button>}
                       {selectedOrder.status === 'shipped' && <button className="btn btn-dark" type="button" onClick={() => { if (window.confirm(`Mark order #${selectedOrder.tracking_code} completed at $${((selectedOrder.quoted_cents || 0) / 100).toFixed(2)}?`)) updateOrder(selectedOrder.id, { status: "completed", quoted_cents: selectedOrder.quoted_cents ?? 0 }, "Order completed"); }}>Mark completed</button>}
@@ -931,6 +931,7 @@ export default function Staff() {
                       type="button"
                       key={order.id}
                       className={pricingOrderId === order.id ? "selected" : ""}
+                      disabled={!['approved', 'printing', 'ready', 'shipped'].includes(order.status)}
                       onClick={() => { setPricingOrderId(order.id); setQuoteRecipient(order.customer_email); }}
                     >
                       <span><strong>#{order.tracking_code}</strong>{order.customer_name}</span>
@@ -942,7 +943,7 @@ export default function Staff() {
                   <label htmlFor="pricing-order">Order to quote</label>
                   <select id="pricing-order" value={pricingOrderId} onChange={(e) => { const id = e.target.value; setPricingOrderId(id); setQuoteRecipient(orders.find((order) => order.id === id)?.customer_email || ""); }}>
                     <option value="">Choose an active order</option>
-                    {orders.filter((order) => !['cancelled', 'completed'].includes(order.status)).map((order) => <option key={order.id} value={order.id}>#{order.tracking_code} — {order.customer_name}</option>)}
+                    {orders.filter((order) => ['approved', 'printing', 'ready', 'shipped'].includes(order.status)).map((order) => <option key={order.id} value={order.id}>#{order.tracking_code} — {order.customer_name}</option>)}
                   </select>
                 </div>
                 <div className="field">
@@ -979,7 +980,7 @@ export default function Staff() {
                 {pricingOrder?.promo_code && <p className="success">Promo code <strong>{pricingOrder.promo_code}</strong>: ${estimatedPrice.toFixed(2)} − ${(estimatedPrice - discountedEstimatedPrice).toFixed(2)} discount</p>}
                 <p className="estimate-formula">$5 setup + ${gramRate.toFixed(2)} × {estimatedGrams}g + $2 × {estimatedHours} print hours + $1 × {modelingHours} modeling hours</p>
                 <small>Shipping, sales tax, unusual materials, and later customer-requested changes are added separately.</small>
-                <button className="btn btn-dark team-save" type="button" disabled={!pricingOrderId} onClick={() => updateOrder(pricingOrderId, { status: "quoted", quoted_cents: Math.round(discountedEstimatedPrice * 100) }, "Pricing quote")}>Save quote to selected order</button>
+                <button className="btn btn-dark team-save" type="button" disabled={!pricingOrderId} onClick={() => updateOrder(pricingOrderId, { quoted_cents: Math.round(discountedEstimatedPrice * 100) }, "Pricing quote")}>Save quote to selected order</button>
                 <button className="btn btn-light team-save" type="button" disabled={!pricingOrderId || !quoteRecipient.trim()} onClick={() => { if (pricingOrder) saveQuoteAndOpenGmail(pricingOrder, Math.round(discountedEstimatedPrice * 100), quoteRecipient); }}>Save quote &amp; open Gmail</button>
               </article>
               <article className="panel rate-reference">
@@ -996,6 +997,24 @@ export default function Staff() {
             </div>
           )}
           {activeTab === "Payments" && role === "admin" && (
+            <>
+            <article className="panel automatic-revenue">
+              <div>
+                <p className="eyebrow">Automatic revenue tracker</p>
+                <h2>Completed-order revenue</h2>
+                <p className="panel-copy">Saved independently from the payroll plan. Completed discounted quotes add automatically, and processed refunds subtract automatically.</p>
+              </div>
+              <div className="revenue-period">
+                <span>This month</span>
+                <strong>${monthlyRevenue.toFixed(2)}</strong>
+                <small>Starts at $0 each calendar month</small>
+              </div>
+              <div className="revenue-period previous">
+                <span>Last month&rsquo;s final</span>
+                <strong>${previousMonthRevenue.toFixed(2)}</strong>
+                <small>Replaced when the next month begins</small>
+              </div>
+            </article>
             <div className="payment-layout">
               <article className="panel">
                 <p className="eyebrow">Admin planning tool</p>
@@ -1003,19 +1022,9 @@ export default function Staff() {
                 <p className="panel-copy">Each role&rsquo;s payment scales automatically. Under $200, the reserve becomes $0 and that money increases role payments. This calculator does not send money.</p>
                 <div className="grid2">
                   <div className="field">
-                    <label htmlFor="monthly-revenue">Completed-order revenue this month</label>
-                    <input id="monthly-revenue" type="text" value={`$${monthlyRevenue.toFixed(2)}`} readOnly />
-                    <small>Updates automatically when an order is completed. Promo discounts and processed refunds are included.</small>
-                  </div>
-                  <div className="field">
                     <label htmlFor="expense-reserve">Scaled company expense reserve</label>
                     <input id="expense-reserve" type="text" value={`$${expenseReserve.toFixed(2)}`} readOnly />
                   </div>
-                </div>
-                <div className="last-month-revenue">
-                  <span>Last month&rsquo;s final revenue</span>
-                  <strong>${previousMonthRevenue.toFixed(2)}</strong>
-                  <small>Automatically replaced when a new calendar month begins.</small>
                 </div>
                 <div className="payment-table-wrap">
                   <table className="table payment-table">
@@ -1048,6 +1057,7 @@ export default function Staff() {
                 <p className={moneyRemaining < 0 ? "payment-warning" : "payment-ok"}>{moneyRemaining < 0 ? "The plan is over budget. Lower a role payment or complete more orders." : "This plan fits within this month’s completed-order revenue."}</p>
               </aside>
             </div>
+            </>
           )}
           {activeTab === "Inventory" && (
             <div className="panel-stack">
