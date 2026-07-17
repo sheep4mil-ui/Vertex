@@ -685,15 +685,15 @@ export default function Staff() {
                     <div className="order-actions">
                       <div className="field">
                         <label htmlFor="order-assignee">Send order to employee</label>
-                        <select id="order-assignee" value={selectedOrder.assigned_to || ""} onChange={(e) => setSelectedOrder({ ...selectedOrder, assigned_to: e.target.value || null })}>
+                        <select id="order-assignee" disabled={['requested', 'quoted'].includes(selectedOrder.status)} value={selectedOrder.assigned_to || ""} onChange={(e) => setSelectedOrder({ ...selectedOrder, assigned_to: e.target.value || null })}>
                           <option value="">Unassigned</option>
                           {teamMembers.filter((member) => member.active).map((member) => (
                             <option key={member.id} value={member.id}>{member.email} — {member.employee_roles?.length ? member.employee_roles.join(", ").replaceAll("_", " ") : "employee"}</option>
                           ))}
                         </select>
-                        <small>Assignments save online immediately. Staff receive the order when they next sign in, even if they are offline now.</small>
+                        <small>{['requested', 'quoted'].includes(selectedOrder.status) ? "Accept the order before assigning it to an employee." : "Assignments save online immediately. Staff receive the order when they next sign in, even if they are offline now."}</small>
                       </div>
-                      <button className="btn btn-light" type="button" onClick={() => updateOrder(selectedOrder.id, { assigned_to: selectedOrder.assigned_to }, "Order assignment")}>Save assignment</button>
+                      <button className="btn btn-light" disabled={['requested', 'quoted'].includes(selectedOrder.status)} type="button" onClick={() => updateOrder(selectedOrder.id, { assigned_to: selectedOrder.assigned_to }, "Order assignment")}>Save assignment</button>
                       {['requested', 'quoted'].includes(selectedOrder.status) && <button className="btn btn-dark" type="button" onClick={() => updateOrder(selectedOrder.id, { status: "approved" }, "Order accepted")}>Accept order</button>}
                       {!['cancelled', 'completed'].includes(selectedOrder.status) && <button className="btn btn-deny" type="button" onClick={() => { if (window.confirm(`Deny order #${selectedOrder.tracking_code}? This will cancel it and remove its assignment.`)) updateOrder(selectedOrder.id, { status: "cancelled", assigned_to: null }, "Order denied"); }}>Deny order</button>}
                       {!['cancelled', 'completed'].includes(selectedOrder.status) && <div className="field completion-revenue"><label htmlFor="final-revenue">Quote / final revenue</label><div className="money-input"><span>$</span><input id="final-revenue" type="number" min="0" step="0.01" value={(selectedOrder.quoted_cents || 0) / 100} onChange={(e) => setSelectedOrder({ ...selectedOrder, quoted_cents: Math.round(Math.max(0, Number(e.target.value)) * 100) })} /></div></div>}
