@@ -356,6 +356,21 @@ export default function Staff() {
     return true;
   }
 
+  async function saveQuoteAndOpenGmail(order: Order, quotedCents: number) {
+    const composeWindow = window.open("about:blank", "_blank");
+    const savedQuote = await updateOrder(order.id, { status: "quoted", quoted_cents: quotedCents }, "Order quote");
+    if (!savedQuote) {
+      composeWindow?.close();
+      return;
+    }
+    const quote = (quotedCents / 100).toFixed(2);
+    const subject = `Your Vertex quote #${order.tracking_code}`;
+    const body = `Hi ${order.customer_name},\n\nYour Vertex 3D-printing quote for order #${order.tracking_code} is $${quote}.\n\nReply to this email to approve the quote or ask questions. Shipping will be confirmed separately if needed.\n\nThank you,\nVertex 3D Printing`;
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(order.customer_email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    if (composeWindow) composeWindow.location.href = gmailUrl;
+    else window.open(gmailUrl, "_blank", "noopener,noreferrer");
+  }
+
   if (!logged)
     return (
       <main className="login">
@@ -574,9 +589,10 @@ export default function Staff() {
                       </div>
                       <button className="btn btn-light" type="button" onClick={() => updateOrder(selectedOrder.id, { assigned_to: selectedOrder.assigned_to }, "Order assignment")}>Save assignment</button>
                       {['requested', 'quoted'].includes(selectedOrder.status) && <button className="btn btn-dark" type="button" onClick={() => updateOrder(selectedOrder.id, { status: "approved", assigned_to: selectedOrder.assigned_to }, "Order accepted")}>Accept order</button>}
-                      {['requested', 'quoted'].includes(selectedOrder.status) && <button className="btn btn-deny" type="button" onClick={() => { if (window.confirm(`Deny order #${selectedOrder.tracking_code}?`)) updateOrder(selectedOrder.id, { status: "cancelled", assigned_to: null }, "Order denied"); }}>Deny order</button>}
+                      {!['cancelled', 'completed'].includes(selectedOrder.status) && <button className="btn btn-deny" type="button" onClick={() => { if (window.confirm(`Deny order #${selectedOrder.tracking_code}? This will cancel it and remove its assignment.`)) updateOrder(selectedOrder.id, { status: "cancelled", assigned_to: null }, "Order denied"); }}>Deny order</button>}
                       {!['cancelled', 'completed'].includes(selectedOrder.status) && <div className="field completion-revenue"><label htmlFor="final-revenue">Quote / final revenue</label><div className="money-input"><span>$</span><input id="final-revenue" type="number" min="0" step="0.01" value={(selectedOrder.quoted_cents || 0) / 100} onChange={(e) => setSelectedOrder({ ...selectedOrder, quoted_cents: Math.round(Math.max(0, Number(e.target.value)) * 100) })} /></div></div>}
                       {!['cancelled', 'completed'].includes(selectedOrder.status) && <button className="btn btn-light" type="button" onClick={() => updateOrder(selectedOrder.id, { status: "quoted", quoted_cents: selectedOrder.quoted_cents ?? 0 }, "Order quote")}>Save quote</button>}
+                      {!['cancelled', 'completed'].includes(selectedOrder.status) && <button className="btn btn-light" type="button" onClick={() => saveQuoteAndOpenGmail(selectedOrder, selectedOrder.quoted_cents ?? 0)}>Save quote &amp; open Gmail</button>}
                       {!['requested', 'cancelled', 'completed'].includes(selectedOrder.status) && <button className="btn btn-dark" type="button" onClick={() => { if (window.confirm(`Mark order #${selectedOrder.tracking_code} completed at $${((selectedOrder.quoted_cents || 0) / 100).toFixed(2)}?`)) updateOrder(selectedOrder.id, { status: "completed", quoted_cents: selectedOrder.quoted_cents ?? 0 }, "Order completed"); }}>Mark completed</button>}
                     </div>
                   )}
@@ -756,6 +772,7 @@ export default function Staff() {
                 <p className="estimate-formula">$5 setup + ${gramRate.toFixed(2)} × {estimatedGrams}g + $2 × {estimatedHours} print hours + $1 × {modelingHours} modeling hours</p>
                 <small>Shipping, sales tax, unusual materials, and later customer-requested changes are added separately.</small>
                 <button className="btn btn-dark team-save" type="button" disabled={!pricingOrderId} onClick={() => updateOrder(pricingOrderId, { status: "quoted", quoted_cents: Math.round(estimatedPrice * 100) }, "Pricing quote")}>Save quote to selected order</button>
+                <button className="btn btn-light team-save" type="button" disabled={!pricingOrderId} onClick={() => { const order = orders.find((item) => item.id === pricingOrderId); if (order) saveQuoteAndOpenGmail(order, Math.round(estimatedPrice * 100)); }}>Save quote &amp; open Gmail</button>
               </article>
               <article className="panel rate-reference">
                 <h2>Vertex rates</h2>
