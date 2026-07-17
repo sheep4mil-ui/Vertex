@@ -31,7 +31,7 @@ export default function Home() {
       return;
     }
     const preference = String(values.get("contact") || "email");
-    const { data, error } = await supabase.rpc("submit_order", {
+    const orderArguments = {
       p_customer_name: String(values.get("name") || ""),
       p_customer_email: String(values.get("email") || ""),
       p_customer_phone: String(values.get("phone") || ""),
@@ -41,7 +41,20 @@ export default function Home() {
       p_quantity: Number(values.get("quantity") || 1),
       p_details: String(values.get("custom_description") || ""),
       p_model_url: String(values.get("model_url") || ""),
-    });
+      p_promo_code: String(values.get("promo_code") || ""),
+    };
+    let { data, error } = await supabase.rpc("submit_order", orderArguments);
+    // Keep order submission available until the promo-code migration has been
+    // run. The code is preserved in the details so staff can still verify it.
+    if (error?.message.includes("Could not find the function") && orderArguments.p_promo_code) {
+      const { p_promo_code, ...legacyArguments } = orderArguments;
+      const fallback = await supabase.rpc("submit_order", {
+        ...legacyArguments,
+        p_details: `${legacyArguments.p_details}\n\nPromo code to verify: ${p_promo_code.trim().toUpperCase()}`,
+      });
+      data = fallback.data;
+      error = fallback.error;
+    }
     if (error) setMessage(`Order could not be saved: ${error.message}`);
     else {
       setMessage(
@@ -258,6 +271,19 @@ export default function Home() {
                 <small>
                   Make sure anyone with the link can view or download it.
                 </small>
+              </div>
+              <div className="field">
+                <label htmlFor="promo_code">Discount code (optional)</label>
+                <input
+                  id="promo_code"
+                  name="promo_code"
+                  minLength={3}
+                  maxLength={20}
+                  autoComplete="off"
+                  placeholder="VERTEX15"
+                  onInput={(e) => (e.currentTarget.value = e.currentTarget.value.toUpperCase().replace(/\s/g, ""))}
+                />
+                <small>Valid codes are applied when Vertex prepares your quote.</small>
               </div>
               <button className="btn btn-dark" type="submit" disabled={sending}>
                 {sending ? "Saving order…" : "Send quote request"}{" "}

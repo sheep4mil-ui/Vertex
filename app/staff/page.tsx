@@ -41,6 +41,8 @@ type Order = {
   status: string;
   assigned_to: string | null;
   quoted_cents: number | null;
+  promo_code: string | null;
+  promo_percent_off: number | null;
   update_preference: string;
   created_at: string;
 };
@@ -103,6 +105,10 @@ export default function Staff() {
   const [messageSubject, setMessageSubject] = useState("");
   const [messageBody, setMessageBody] = useState("");
   const [selectedMessage, setSelectedMessage] = useState<StaffMessage | null>(null);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoPercent, setPromoPercent] = useState(15);
+  const [promoExpires, setPromoExpires] = useState("");
+  const [promoMaxUses, setPromoMaxUses] = useState("");
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [filaments, setFilaments] = useState<Filament[]>([]);
   const [newFilament, setNewFilament] = useState({ material: "PLA", color: "", spool_count: 1, grams_available: 1000, notes: "" });
@@ -130,10 +136,17 @@ export default function Staff() {
   async function refreshOrders(assignedUserId: string | null = role === "employee" ? staffUserId : null) {
     const supabase = getSupabase();
     if (!supabase) return;
-    let query = supabase.from("orders").select("id,tracking_code,customer_name,customer_email,customer_phone,shipping_address,material,quantity,details,model_url,status,assigned_to,quoted_cents,update_preference,created_at").not("status", "in", "(completed,cancelled)").order("created_at", { ascending: false });
+    const baseColumns = "id,tracking_code,customer_name,customer_email,customer_phone,shipping_address,material,quantity,details,model_url,status,assigned_to,quoted_cents,update_preference,created_at";
+    let query = supabase.from("orders").select(`${baseColumns},promo_code,promo_percent_off`).not("status", "in", "(completed,cancelled)").order("created_at", { ascending: false });
     if (assignedUserId) query = query.eq("assigned_to", assignedUserId);
-    const { data } = await query;
-    const latestOrders = (data || []) as Order[];
+    const { data, error } = await query;
+    let latestOrders = (data || []) as Order[];
+    if (error?.message.includes("promo_")) {
+      let legacyQuery = supabase.from("orders").select(baseColumns).not("status", "in", "(completed,cancelled)").order("created_at", { ascending: false });
+      if (assignedUserId) legacyQuery = legacyQuery.eq("assigned_to", assignedUserId);
+      const legacy = await legacyQuery;
+      latestOrders = ((legacy.data || []) as Omit<Order, "promo_code" | "promo_percent_off">[]).map((order) => ({ ...order, promo_code: null, promo_percent_off: null }));
+    }
     setOrders(latestOrders);
     setSelectedOrder((current) => current ? latestOrders.find((order) => order.id === current.id) || null : null);
   }
@@ -328,6 +341,47 @@ export default function Staff() {
       setAnnouncementSubject("");
       setAnnouncementMessage("");
       setSaved("Company announcement");
+    }
+  }
+
+  async function saveSeasonalDiscount(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const form = e.currentTarget;
+    const values = new FormData(form);
+    const { error } = await supabase.from("seasonal_discounts").insert({
+      name: String(values.get("seasonal_name") || "").trim(),
+      percent_off: Number(values.get("seasonal_percent")),
+      starts_at: new Date(`${values.get("seasonal_start")}T00:00:00`).toISOString(),
+      ends_at: new Date(`${values.get("seasonal_end")}T23:59:59`).toISOString(),
+      created_by: staffUserId,
+    });
+    if (error) setSaved(`Seasonal discount error: ${error.message}`);
+    else {
+      setSaved("Seasonal discount");
+      form.reset();
+    }
+  }
+
+  async function savePromoCode(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const { error } = await supabase.from("promo_codes").insert({
+      code: promoCode.trim().toUpperCase(),
+      percent_off: promoPercent,
+      expires_at: new Date(`${promoExpires}T23:59:59`).toISOString(),
+      max_uses: promoMaxUses ? Number(promoMaxUses) : null,
+      created_by: staffUserId,
+    });
+    if (error) setSaved(`Promo code error: ${error.message}`);
+    else {
+      setSaved("Promo code");
+      setPromoCode("");
+      setPromoPercent(15);
+      setPromoExpires("");
+      setPromoMaxUses("");
     }
   }
 
@@ -689,6 +743,7 @@ export default function Staff() {
                     <div><span>Customer</span><strong>{selectedOrder.customer_name}</strong><a href={`mailto:${selectedOrder.customer_email}`}>{selectedOrder.customer_email}</a>{selectedOrder.customer_phone && <a href={`tel:${selectedOrder.customer_phone}`}>{selectedOrder.customer_phone}</a>}</div>
                     <div><span>Print setup</span><strong>{selectedOrder.quantity} × {selectedOrder.material || "Material not selected"}</strong></div>
                     <div><span>Saved customer quote</span><strong>{selectedOrder.quoted_cents == null ? "Not quoted yet" : `$${(selectedOrder.quoted_cents / 100).toFixed(2)}`}</strong></div>
+                    <div><span>Discount code</span><strong>{selectedOrder.promo_code ? `${selectedOrder.promo_code} — ${selectedOrder.promo_percent_off}% off` : "No promo code"}</strong></div>
                     <div className="custom-print-box"><span>Custom print description</span><p>{selectedOrder.details}</p></div>
                     <div><span>Delivery</span><strong>{selectedOrder.shipping_address ? "Ship order" : "Local pickup"}</strong><p className="shipping-address">{selectedOrder.shipping_address || "No shipping address provided."}</p></div>
                     <div><span>Model file</span>{selectedOrder.model_url ? <a className="btn btn-dark" href={selectedOrder.model_url} target="_blank" rel="noreferrer">Open model link <ArrowRight size={16} /></a> : <p>No model link was provided.</p>}</div>
@@ -1001,21 +1056,16 @@ export default function Staff() {
                     Create a temporary automatic discount for every customer.
                   </p>
                 </div>
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    setSaved("Seasonal discount");
-                  }}
-                >
+                <form onSubmit={saveSeasonalDiscount}>
                   <div className="grid2">
                     <div className="field">
                       <label>Promotion name</label>
-                      <input required placeholder="Summer sale" />
+                      <input name="seasonal_name" required placeholder="Summer sale" />
                     </div>
                     <div className="field">
                       <label>Percent off</label>
                       <input
-                        required
+                        name="seasonal_percent" required
                         type="number"
                         min="1"
                         max="100"
@@ -1026,14 +1076,15 @@ export default function Staff() {
                   <div className="grid2">
                     <div className="field">
                       <label>Start date</label>
-                      <input required type="date" />
+                      <input name="seasonal_start" required type="date" />
                     </div>
                     <div className="field">
                       <label>End date</label>
-                      <input required type="date" />
+                      <input name="seasonal_end" required type="date" />
                     </div>
                   </div>
                   {saved === "Seasonal discount" && notice}
+                  {saved.startsWith("Seasonal discount error") && <div className="form-error">{saved}</div>}
                   <button className="btn btn-dark">
                     Save seasonal discount
                   </button>
@@ -1050,12 +1101,7 @@ export default function Staff() {
                     limit.
                   </p>
                 </div>
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    setSaved("Promo code");
-                  }}
-                >
+                <form onSubmit={savePromoCode}>
                   <div className="grid2">
                     <div className="field">
                       <label>Promo code</label>
@@ -1064,16 +1110,14 @@ export default function Staff() {
                         minLength={3}
                         maxLength={20}
                         placeholder="VERTEX15"
-                        onInput={(e) =>
-                          (e.currentTarget.value =
-                            e.currentTarget.value.toUpperCase())
-                        }
+                        value={promoCode}
+                        onChange={(e) => setPromoCode(e.currentTarget.value.toUpperCase().replace(/\s/g, ""))}
                       />
                     </div>
                     <div className="field">
                       <label>Percent off</label>
                       <input
-                        required
+                        required value={promoPercent} onChange={(e) => setPromoPercent(Number(e.target.value))}
                         type="number"
                         min="1"
                         max="100"
@@ -1084,14 +1128,15 @@ export default function Staff() {
                   <div className="grid2">
                     <div className="field">
                       <label>Expiration date</label>
-                      <input required type="date" />
+                      <input required type="date" value={promoExpires} onChange={(e) => setPromoExpires(e.target.value)} />
                     </div>
                     <div className="field">
                       <label>Maximum uses</label>
-                      <input type="number" min="1" placeholder="Unlimited" />
+                      <input type="number" min="1" placeholder="Unlimited" value={promoMaxUses} onChange={(e) => setPromoMaxUses(e.target.value)} />
                     </div>
                   </div>
                   {saved === "Promo code" && notice}
+                  {saved.startsWith("Promo code error") && <div className="form-error">{saved}</div>}
                   <button className="btn btn-dark">Create promo code</button>
                 </form>
               </article>
