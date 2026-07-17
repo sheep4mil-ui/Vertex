@@ -999,10 +999,22 @@ export default function Staff() {
                   <div><span>Supporting information</span>{selectedApplication.portfolio_url ? <a href={selectedApplication.portfolio_url} target="_blank" rel="noreferrer">Open portfolio or project link</a> : <p>No portfolio link</p>}<p>{selectedApplication.reference_info || "No reference provided"}</p></div>
                 </div>
                 <div className="grid2 hiring-controls">
-                  <div className="field"><label htmlFor="application-status">Hiring stage</label><select id="application-status" value={selectedApplication.status} onChange={(e) => setSelectedApplication({ ...selectedApplication, status: e.target.value })}><option value="new">New</option><option value="reviewing">Reviewing</option><option value="interview">Interview</option><option value="accepted">Accepted — delete after saving</option><option value="declined">Declined — delete after saving</option></select><small>Accepted and declined applications are permanently removed when saved.</small></div>
+                  <div className="field"><label htmlFor="application-status">Hiring stage</label><select id="application-status" value={selectedApplication.status} onChange={(e) => setSelectedApplication({ ...selectedApplication, status: e.target.value })}><option value="new">New</option><option value="reviewing">Reviewing</option><option value="interview">Interview</option></select><small>Use the decision buttons below to accept or deny the applicant.</small></div>
                   <div className="field"><label htmlFor="application-notes">Private administrator notes</label><textarea id="application-notes" value={selectedApplication.admin_notes} onChange={(e) => setSelectedApplication({ ...selectedApplication, admin_notes: e.target.value })} placeholder="Interview notes, follow-up, or decision reason" /></div>
                 </div>
-                <button className="btn btn-dark" onClick={() => saveApplication(selectedApplication)}>Save application review</button>
+                <div className="hiring-decisions">
+                  <button className="btn btn-light" onClick={() => saveApplication(selectedApplication)}>Save review progress</button>
+                  <button className="btn btn-dark" onClick={() => {
+                    if (window.confirm(`Accept ${selectedApplication.full_name}? Their application will be permanently deleted after acceptance.`)) {
+                      saveApplication({ ...selectedApplication, status: "accepted" });
+                    }
+                  }}>Accept applicant</button>
+                  <button className="btn btn-deny" onClick={() => {
+                    if (window.confirm(`Deny ${selectedApplication.full_name}? Their application will be permanently deleted.`)) {
+                      saveApplication({ ...selectedApplication, status: "declined" });
+                    }
+                  }}>Deny applicant</button>
+                </div>
               </article>}
             </div>
           )}
