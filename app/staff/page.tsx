@@ -32,6 +32,7 @@ type Order = {
   customer_name: string;
   customer_email: string;
   customer_phone: string | null;
+  shipping_address: string | null;
   details: string;
   status: string;
   update_preference: string;
@@ -131,7 +132,7 @@ export default function Staff() {
     const query = supabase
       .from("orders")
       .select(
-        "id,tracking_code,customer_name,customer_email,customer_phone,details,status,update_preference,created_at",
+        "id,tracking_code,customer_name,customer_email,customer_phone,shipping_address,details,status,update_preference,created_at",
       )
       .order("created_at", { ascending: false });
     const { data } = await query;
@@ -498,13 +499,14 @@ export default function Staff() {
                       {role === "admin" && <th>Customer</th>}
                       <th>Item</th>
                       <th>Status</th>
+                      {role === "admin" && <th>Shipping</th>}
                       <th>Updates</th>
                     </tr>
                   </thead>
                   <tbody>
                     {orders.length === 0 ? (
                       <tr>
-                        <td colSpan={role === "admin" ? 5 : 4}>No orders found.</td>
+                        <td colSpan={role === "admin" ? 6 : 4}>No orders found.</td>
                       </tr>
                     ) : orders.map((order) => (
                       <tr key={order.id}>
@@ -512,6 +514,7 @@ export default function Staff() {
                         {role === "admin" && <td>{order.customer_name}</td>}
                         <td>{order.details}</td>
                         <td><span className={`pill ${order.status}`}>{order.status.replaceAll("_", " ")}</span></td>
+                        {role === "admin" && <td className="shipping-address">{order.shipping_address || "Local pickup"}</td>}
                         <td>{order.update_preference}</td>
                       </tr>
                     ))}

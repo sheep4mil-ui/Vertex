@@ -19,6 +19,7 @@ create table public.orders (
   customer_name text not null,
   customer_email text not null,
   customer_phone text,
+  shipping_address text,
   update_preference text not null check (update_preference in ('email', 'text', 'both')),
   material text,
   quantity integer not null default 1 check (quantity > 0),
