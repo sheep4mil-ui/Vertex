@@ -120,7 +120,7 @@ export default function Home() {
         <nav className="navlinks">
           <a href="#process">How it works</a>
           <a href="#order">Order</a>
-          <a href="apply">Careers</a>
+          <a className="btn btn-light careers-button" href="apply">Apply to Vertex</a>
           <a className="btn btn-light staff-signin" href="staff">Staff sign in</a>
           <a className="btn btn-dark nav-order-button" href="#order">
             Start a print <ArrowRight size={17} />
