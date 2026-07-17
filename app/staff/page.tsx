@@ -13,10 +13,11 @@ import {
 import { getSupabase } from "@/lib/supabase";
 
 type Tab =
-  "Orders" | "Customers" | "Team" | "Pricing" | "Inventory" | "Payments" | "Discounts" | "Messages" | "Email Center" | "Settings";
+  "Orders" | "Customers" | "Hiring" | "Team" | "Pricing" | "Inventory" | "Payments" | "Discounts" | "Messages" | "Email Center" | "Settings";
 const adminTabs: Tab[] = [
   "Orders",
   "Customers",
+  "Hiring",
   "Team",
   "Pricing",
   "Inventory",
@@ -73,6 +74,13 @@ type TeamMember = {
 };
 type PaymentRow = { role: string; count: number; baseAmount: number };
 type Filament = { id: string; material: string; color: string; spool_count: number; grams_available: number; in_stock: boolean; notes: string };
+type JobApplication = {
+  id: string; reference_code: string; full_name: string; email: string; phone: string | null;
+  age_range: string; school_or_program: string | null; roles: string[]; availability: string;
+  experience: string; skills: string; why_vertex: string; portfolio_url: string | null;
+  reference_info: string | null; guardian_permission: boolean; status: string;
+  admin_notes: string; created_at: string;
+};
 
 export default function Staff() {
   const [logged, setLogged] = useState(false);
@@ -111,6 +119,9 @@ export default function Staff() {
   const [promoMaxUses, setPromoMaxUses] = useState("");
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [filaments, setFilaments] = useState<Filament[]>([]);
+  const [applications, setApplications] = useState<JobApplication[]>([]);
+  const [selectedApplication, setSelectedApplication] = useState<JobApplication | null>(null);
+  const [hiringError, setHiringError] = useState("");
   const [newFilament, setNewFilament] = useState({ material: "PLA", color: "", spool_count: 1, grams_available: 1000, notes: "" });
   const [priceMaterial, setPriceMaterial] = useState<"PLA" | "PETG">("PLA");
   const [estimatedGrams, setEstimatedGrams] = useState(100);
@@ -173,8 +184,10 @@ export default function Staff() {
     setMessageSystemError(directoryError?.message || messagesError?.message || "");
     setFilaments((filamentData || []) as Filament[]);
     if (role === "admin") {
-      const [{ data: teamData }, { data: payrollData }] = await Promise.all([supabase.rpc("get_vertex_team"), supabase.rpc("get_vertex_payroll_plan")]);
+      const [{ data: teamData }, { data: payrollData }, { data: applicationData, error: applicationError }] = await Promise.all([supabase.rpc("get_vertex_team"), supabase.rpc("get_vertex_payroll_plan"), supabase.rpc("get_vertex_applications")]);
       setTeamMembers((teamData || []) as TeamMember[]);
+      setApplications((applicationData || []) as JobApplication[]);
+      setHiringError(applicationError?.message || "");
       const payroll = Array.isArray(payrollData) ? payrollData[0] : payrollData;
       if (payroll) {
         const hasAutomaticRevenue = payroll.previous_month_revenue !== undefined || payroll.projected_revenue !== undefined;
@@ -222,11 +235,14 @@ export default function Staff() {
     const { data: filamentData } = await supabase.from("filament_inventory").select("id,material,color,spool_count,grams_available,in_stock,notes").order("material").order("color");
     setFilaments((filamentData || []) as Filament[]);
     if (profile.level === "admin") {
-      const [{ data: teamData }, { data: payrollData }] = await Promise.all([
+      const [{ data: teamData }, { data: payrollData }, { data: applicationData, error: applicationError }] = await Promise.all([
         supabase.rpc("get_vertex_team"),
         supabase.rpc("get_vertex_payroll_plan"),
+        supabase.rpc("get_vertex_applications"),
       ]);
       setTeamMembers((teamData || []) as TeamMember[]);
+      setApplications((applicationData || []) as JobApplication[]);
+      setHiringError(applicationError?.message || "");
       const payroll = Array.isArray(payrollData) ? payrollData[0] : payrollData;
       if (payroll) {
         const hasAutomaticRevenue = payroll.previous_month_revenue !== undefined || payroll.projected_revenue !== undefined;
@@ -272,7 +288,7 @@ export default function Staff() {
     const supabase = getSupabase();
     if (!supabase || !logged) return;
     let channel = supabase.channel("vertex-live-dashboard");
-    ["orders", "filament_inventory", "profiles", "vertex_payroll_plan", "announcements", "staff_messages", "staff_message_recipients", "seasonal_discounts", "promo_codes"].forEach((table) => {
+    ["orders", "filament_inventory", "profiles", "vertex_payroll_plan", "announcements", "staff_messages", "staff_message_recipients", "seasonal_discounts", "promo_codes", "job_applications"].forEach((table) => {
       channel = channel.on("postgres_changes", { event: "*", schema: "public", table }, refreshSharedData);
     });
     channel.subscribe();
@@ -553,6 +569,28 @@ export default function Staff() {
     const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(receivingEmail.trim() || order.customer_email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     if (composeWindow) composeWindow.location.href = gmailUrl;
     else window.open(gmailUrl, "_blank", "noopener,noreferrer");
+  }
+
+  async function saveApplication(application: JobApplication) {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const { error } = await supabase.rpc("update_vertex_application", {
+      p_id: application.id,
+      p_status: application.status,
+      p_admin_notes: application.admin_notes,
+    });
+    if (error) setSaved(`Hiring error: ${error.message}`);
+    else {
+      if (["accepted", "declined"].includes(application.status)) {
+        setApplications((current) => current.filter((item) => item.id !== application.id));
+        setSelectedApplication(null);
+        setSaved(`Application ${application.reference_code} ${application.status} and deleted`);
+      } else {
+        setApplications((current) => current.map((item) => item.id === application.id ? application : item));
+        setSelectedApplication(application);
+        setSaved(`Application ${application.reference_code}`);
+      }
+    }
   }
 
   if (!logged)
@@ -917,6 +955,57 @@ export default function Staff() {
                 <span>Social Management</span>
               </div>
             </article>
+          )}
+          {activeTab === "Hiring" && role === "admin" && (
+            <div className="hiring-admin">
+              <article className="panel">
+                <div className="hiring-head">
+                  <div><p className="eyebrow">Administrator only</p><h2>Job applications</h2><p className="panel-copy">Review résumé-style applications and update each candidate&apos;s hiring stage.</p></div>
+                  <a className="btn btn-dark" href="../apply" target="_blank" rel="noreferrer">Open hiring page <ArrowRight size={16} /></a>
+                </div>
+                {hiringError && <div className="form-error">Hiring system is not active: {hiringError}. Run <strong>supabase/hiring.sql</strong> in the Supabase SQL Editor.</div>}
+                {saved.startsWith("Hiring error") && <div className="form-error">{saved}</div>}
+                {saved.startsWith("Application ") && <div className="success">{saved}{saved.endsWith("deleted") ? "." : " saved."}</div>}
+                <div className="payment-table-wrap">
+                  <table className="table hiring-table">
+                    <thead><tr><th>Applicant</th><th>Interests</th><th>Age range</th><th>Status</th><th>Applied</th><th></th></tr></thead>
+                    <tbody>
+                      {applications.length === 0 ? <tr><td colSpan={6}>No applications found yet.</td></tr> : applications.map((application) => (
+                        <tr key={application.id}>
+                          <td><strong>{application.full_name}</strong><br /><a href={`mailto:${application.email}`}>{application.email}</a></td>
+                          <td>{application.roles.length ? application.roles.join(", ") : "No roles selected"}</td>
+                          <td>{application.age_range}</td>
+                          <td><span className={`pill hiring-${application.status}`}>{application.status}</span></td>
+                          <td>{new Date(application.created_at).toLocaleDateString()}</td>
+                          <td><button className="btn btn-light table-save" onClick={() => setSelectedApplication(application)}>Review</button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+              {selectedApplication && <article className="panel application-review">
+                <div className="order-details-head">
+                  <div><p className="eyebrow">{selectedApplication.reference_code}</p><h2>{selectedApplication.full_name}</h2></div>
+                  <button className="btn btn-light" onClick={() => setSelectedApplication(null)}>Close</button>
+                </div>
+                <div className="application-review-grid">
+                  <div><span>Contact</span><a href={`mailto:${selectedApplication.email}`}>{selectedApplication.email}</a>{selectedApplication.phone && <a href={`tel:${selectedApplication.phone}`}>{selectedApplication.phone}</a>}</div>
+                  <div><span>Background</span><strong>{selectedApplication.age_range}</strong><p>{selectedApplication.school_or_program || "Not provided"}</p><small>{selectedApplication.guardian_permission ? "Guardian permission confirmed if under 18" : "Guardian permission not confirmed"}</small></div>
+                  <div><span>Interested roles</span><p>{selectedApplication.roles.join(", ") || "None selected"}</p></div>
+                  <div><span>Availability</span><p>{selectedApplication.availability}</p></div>
+                  <div><span>Experience</span><p>{selectedApplication.experience}</p></div>
+                  <div><span>Skills</span><p>{selectedApplication.skills}</p></div>
+                  <div><span>Why Vertex</span><p>{selectedApplication.why_vertex}</p></div>
+                  <div><span>Supporting information</span>{selectedApplication.portfolio_url ? <a href={selectedApplication.portfolio_url} target="_blank" rel="noreferrer">Open portfolio or project link</a> : <p>No portfolio link</p>}<p>{selectedApplication.reference_info || "No reference provided"}</p></div>
+                </div>
+                <div className="grid2 hiring-controls">
+                  <div className="field"><label htmlFor="application-status">Hiring stage</label><select id="application-status" value={selectedApplication.status} onChange={(e) => setSelectedApplication({ ...selectedApplication, status: e.target.value })}><option value="new">New</option><option value="reviewing">Reviewing</option><option value="interview">Interview</option><option value="accepted">Accepted — delete after saving</option><option value="declined">Declined — delete after saving</option></select><small>Accepted and declined applications are permanently removed when saved.</small></div>
+                  <div className="field"><label htmlFor="application-notes">Private administrator notes</label><textarea id="application-notes" value={selectedApplication.admin_notes} onChange={(e) => setSelectedApplication({ ...selectedApplication, admin_notes: e.target.value })} placeholder="Interview notes, follow-up, or decision reason" /></div>
+                </div>
+                <button className="btn btn-dark" onClick={() => saveApplication(selectedApplication)}>Save application review</button>
+              </article>}
+            </div>
           )}
           {activeTab === "Pricing" && (
             <div className="admin-pricing">
