@@ -34,7 +34,9 @@ export default function Apply() {
       p_why_vertex: String(values.get("why_vertex") || ""),
       p_portfolio_url: String(values.get("portfolio_url") || ""),
       p_reference_info: String(values.get("reference_info") || ""),
+      p_application_pin: String(values.get("application_pin") || ""),
       p_guardian_permission: values.get("guardian_permission") === "on",
+      p_terms_accepted: values.get("terms_accepted") === "on",
     });
     if (error) setMessage(`Application could not be saved: ${error.message}`);
     else {
@@ -86,8 +88,13 @@ export default function Apply() {
             <div className="field"><label htmlFor="portfolio_url">Portfolio or project link (optional)</label><input id="portfolio_url" name="portfolio_url" type="url" pattern="https://.*" placeholder="https://drive.google.com/…" /></div>
             <div className="field"><label htmlFor="reference_info">Reference (optional)</label><input id="reference_info" name="reference_info" maxLength={300} placeholder="Name and contact details, with their permission" /></div>
           </div>
+          <div className="field application-pin">
+            <label htmlFor="application_pin">Create a 4-digit applicant code</label>
+            <input id="application_pin" name="application_pin" type="password" inputMode="numeric" pattern="[0-9]{4}" minLength={4} maxLength={4} required autoComplete="new-password" placeholder="4 digits" />
+            <small>Enter exactly four numbers. Keep this code so Vertex can confirm which application is yours.</small>
+          </div>
           <label className="order-policy"><input type="checkbox" name="guardian_permission" /><span>If I am under 18, I have permission to apply and will involve a parent or guardian before accepting work.</span></label>
-          <label className="order-policy"><input type="checkbox" required /><span>I confirm that this information is accurate and may be reviewed by Vertex administrators for hiring purposes.</span></label>
+          <label className="order-policy"><input type="checkbox" name="terms_accepted" required /><span><strong>Required:</strong> I accept the application terms, confirm this information is accurate, and understand it may be reviewed by Vertex administrators for hiring purposes.</span></label>
           <button className="btn btn-dark" disabled={sending}>{sending ? "Submitting…" : "Submit application"} <ArrowRight size={17} /></button>
         </form>
       </section>
