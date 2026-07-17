@@ -73,6 +73,7 @@ type TeamMember = {
 };
 type PaymentRow = { role: string; count: number; baseAmount: number };
 type Filament = { id: string; material: string; color: string; spool_count: number; grams_available: number; in_stock: boolean; notes: string };
+type RefundRequest = { id: string; tracking_code: string; requested_cents: number; approved_cents: number | null; reason: string; status: string; requested_at: string };
 
 export default function Staff() {
   const [logged, setLogged] = useState(false);
@@ -109,6 +110,7 @@ export default function Staff() {
   const [promoPercent, setPromoPercent] = useState(15);
   const [promoExpires, setPromoExpires] = useState("");
   const [promoMaxUses, setPromoMaxUses] = useState("");
+  const [refundRequests, setRefundRequests] = useState<RefundRequest[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [filaments, setFilaments] = useState<Filament[]>([]);
   const [newFilament, setNewFilament] = useState({ material: "PLA", color: "", spool_count: 1, grams_available: 1000, notes: "" });
@@ -173,13 +175,15 @@ export default function Staff() {
     setMessageSystemError(directoryError?.message || messagesError?.message || "");
     setFilaments((filamentData || []) as Filament[]);
     if (role === "admin") {
-      const [{ data: teamData }, { data: payrollData }] = await Promise.all([supabase.rpc("get_vertex_team"), supabase.rpc("get_vertex_payroll_plan")]);
+      const [{ data: teamData }, { data: payrollData }, { data: refundData }] = await Promise.all([supabase.rpc("get_vertex_team"), supabase.rpc("get_vertex_payroll_plan"), supabase.from("refund_requests").select("id,tracking_code,requested_cents,approved_cents,reason,status,requested_at").order("requested_at", { ascending: false })]);
       setTeamMembers((teamData || []) as TeamMember[]);
+      setRefundRequests((refundData || []) as RefundRequest[]);
       const payroll = Array.isArray(payrollData) ? payrollData[0] : payrollData;
       if (payroll) {
-        setMonthlyRevenue(Number(payroll.monthly_revenue));
-        setPreviousMonthRevenue(Number(payroll.previous_month_revenue || 0));
-        setProjectedRevenue(Number(payroll.projected_revenue ?? 205));
+        const hasAutomaticRevenue = payroll.previous_month_revenue !== undefined || payroll.projected_revenue !== undefined;
+        setMonthlyRevenue(hasAutomaticRevenue ? Number(payroll.monthly_revenue || 0) : 0);
+        setPreviousMonthRevenue(hasAutomaticRevenue ? Number(payroll.previous_month_revenue || 0) : 0);
+        setProjectedRevenue(Number(hasAutomaticRevenue ? (payroll.projected_revenue ?? 205) : payroll.monthly_revenue));
         setPaymentRows((rows) => rows.map((row) => ({ ...row, count: Number(payroll[`${row.role.toLowerCase().replaceAll(" ", "_")}_count`] ?? row.count) })));
       }
     }
@@ -221,16 +225,19 @@ export default function Staff() {
     const { data: filamentData } = await supabase.from("filament_inventory").select("id,material,color,spool_count,grams_available,in_stock,notes").order("material").order("color");
     setFilaments((filamentData || []) as Filament[]);
     if (profile.level === "admin") {
-      const [{ data: teamData }, { data: payrollData }] = await Promise.all([
+      const [{ data: teamData }, { data: payrollData }, { data: refundData }] = await Promise.all([
         supabase.rpc("get_vertex_team"),
         supabase.rpc("get_vertex_payroll_plan"),
+        supabase.from("refund_requests").select("id,tracking_code,requested_cents,approved_cents,reason,status,requested_at").order("requested_at", { ascending: false }),
       ]);
       setTeamMembers((teamData || []) as TeamMember[]);
+      setRefundRequests((refundData || []) as RefundRequest[]);
       const payroll = Array.isArray(payrollData) ? payrollData[0] : payrollData;
       if (payroll) {
-        setMonthlyRevenue(Number(payroll.monthly_revenue));
-        setPreviousMonthRevenue(Number(payroll.previous_month_revenue || 0));
-        setProjectedRevenue(Number(payroll.projected_revenue ?? 205));
+        const hasAutomaticRevenue = payroll.previous_month_revenue !== undefined || payroll.projected_revenue !== undefined;
+        setMonthlyRevenue(hasAutomaticRevenue ? Number(payroll.monthly_revenue || 0) : 0);
+        setPreviousMonthRevenue(hasAutomaticRevenue ? Number(payroll.previous_month_revenue || 0) : 0);
+        setProjectedRevenue(Number(hasAutomaticRevenue ? (payroll.projected_revenue ?? 205) : payroll.monthly_revenue));
         setPaymentRows((rows) => rows.map((row) => ({
           ...row,
           count: Number(payroll[`${row.role.toLowerCase().replaceAll(" ", "_")}_count`] ?? row.count),
@@ -270,7 +277,7 @@ export default function Staff() {
     const supabase = getSupabase();
     if (!supabase || !logged) return;
     let channel = supabase.channel("vertex-live-dashboard");
-    ["orders", "filament_inventory", "profiles", "vertex_payroll_plan", "announcements", "staff_messages", "staff_message_recipients", "seasonal_discounts", "promo_codes"].forEach((table) => {
+    ["orders", "filament_inventory", "profiles", "vertex_payroll_plan", "announcements", "staff_messages", "staff_message_recipients", "seasonal_discounts", "promo_codes", "refund_requests"].forEach((table) => {
       channel = channel.on("postgres_changes", { event: "*", schema: "public", table }, refreshSharedData);
     });
     channel.subscribe();
@@ -466,6 +473,23 @@ export default function Staff() {
       p_social_management_count: counts["Social Management"] || 0,
     });
     setSaved(error ? `Payroll error: ${error.message}` : "Monthly payroll plan");
+  }
+
+  async function updateRefund(refund: RefundRequest, status: "approved" | "denied" | "processed") {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const approvedCents = status === "denied" ? 0 : (refund.approved_cents ?? refund.requested_cents);
+    const { data, error } = await supabase.from("refund_requests")
+      .update({ status, approved_cents: approvedCents })
+      .eq("id", refund.id)
+      .select("id,tracking_code,requested_cents,approved_cents,reason,status,requested_at")
+      .single();
+    if (error) setSaved(`Refund error: ${error.message}`);
+    else {
+      setRefundRequests((items) => items.map((item) => item.id === refund.id ? data as RefundRequest : item));
+      setSaved(`Refund ${status}`);
+      await refreshSharedData();
+    }
   }
 
   async function addFilament(e: React.FormEvent) {
@@ -1063,6 +1087,30 @@ export default function Staff() {
                 <span>Last month&rsquo;s revenue</span>
                 <strong>${previousMonthRevenue.toFixed(2)}</strong>
                 <small>Replaced when the next month begins</small>
+              </div>
+            </article>
+            <article className="panel refund-admin">
+              <p className="eyebrow">Refund system</p>
+              <h2>Customer refund requests</h2>
+              <p className="panel-copy">Approve or deny requests. Marking an approved refund processed subtracts it from automatic revenue; money must still be returned through the original payment method.</p>
+              {saved.startsWith("Refund error") && <div className="form-error">{saved}</div>}
+              <div className="refund-list">
+                {refundRequests.length === 0 ? <p>No refund requests.</p> : refundRequests.map((refund) => (
+                  <div key={refund.id}>
+                    <div>
+                      <strong>#{refund.tracking_code}</strong>
+                      <span className="pill">{refund.status}</span>
+                      <small>{new Date(refund.requested_at).toLocaleDateString()}</small>
+                    </div>
+                    <p>{refund.reason}</p>
+                    <div className="refund-actions">
+                      <label>Refund amount <span className="money-input">$<input type="number" min="0" step="0.01" disabled={refund.status === "processed" || refund.status === "denied"} value={(refund.approved_cents ?? refund.requested_cents) / 100} onChange={(e) => setRefundRequests((items) => items.map((item) => item.id === refund.id ? { ...item, approved_cents: Math.round(Math.max(0, Number(e.target.value)) * 100) } : item))} /></span></label>
+                      {refund.status === "requested" && <button className="btn btn-light" type="button" onClick={() => updateRefund(refund, "approved")}>Approve</button>}
+                      {refund.status === "requested" && <button className="btn btn-deny" type="button" onClick={() => updateRefund(refund, "denied")}>Deny</button>}
+                      {refund.status === "approved" && <button className="btn btn-dark" type="button" onClick={() => updateRefund(refund, "processed")}>Mark refund processed</button>}
+                    </div>
+                  </div>
+                ))}
               </div>
             </article>
             </>
