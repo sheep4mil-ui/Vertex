@@ -438,7 +438,7 @@ export default function Home() {
                 </label>
                 <label>
                   <input type="radio" name="payment_method" value="cash" checked={paymentMethod === "cash"} onChange={(e) => setPaymentMethod(e.target.value)} />
-                  <span><b>Cash before production</b><small>After accepting the final quote, arrange a safe in-person payment with Vertex. Full payment is required before materials are ordered or work begins. Do not mail cash.</small></span>
+                  <span><b>Cash before production</b><small>After accepting the final quote, confirm the payment arrangements with Vertex. Full payment must be received before materials are ordered or work begins.</small></span>
                 </label>
                 {paymentMethod === "paypal" && <div className="field paypal-account">
                   <label htmlFor="paypal_account">PayPal email or username</label>
