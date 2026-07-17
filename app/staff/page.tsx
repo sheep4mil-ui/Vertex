@@ -123,7 +123,7 @@ export default function Staff() {
   const pricingOrder = orders.find((order) => order.id === pricingOrderId);
   const pricingDiscountPercent = pricingOrder?.promo_percent_off || 0;
   const discountedEstimatedPrice = estimatedPrice * (1 - pricingDiscountPercent / 100);
-  const [monthlyRevenue, setMonthlyRevenue] = useState(205);
+  const [monthlyRevenue, setMonthlyRevenue] = useState(0);
   const [paymentRows, setPaymentRows] = useState<PaymentRow[]>([
     { role: "Printer", count: 2, baseAmount: 30 },
     { role: "Handout", count: 0, baseAmount: 10 },
@@ -1000,8 +1000,9 @@ export default function Staff() {
                 <p className="panel-copy">Each role&rsquo;s payment scales automatically. Under $200, the reserve becomes $0 and that money increases role payments. This calculator does not send money.</p>
                 <div className="grid2">
                   <div className="field">
-                    <label htmlFor="monthly-revenue">Monthly revenue</label>
-                    <input id="monthly-revenue" type="number" min="0" step="0.01" value={monthlyRevenue} onChange={(e) => setMonthlyRevenue(Math.max(0, Number(e.target.value)))} />
+                    <label htmlFor="monthly-revenue">Completed-order revenue this month</label>
+                    <input id="monthly-revenue" type="text" value={`$${monthlyRevenue.toFixed(2)}`} readOnly />
+                    <small>Updates automatically when an order is completed. Promo discounts and processed refunds are included.</small>
                   </div>
                   <div className="field">
                     <label htmlFor="expense-reserve">Scaled company expense reserve</label>
@@ -1025,7 +1026,7 @@ export default function Staff() {
                   </table>
                 </div>
                 <p className="demo-note">{lowRevenueMonth ? "Under $200: the reserve is $0 and role payments scale from the $175 employee-payment baseline." : "At $200 or more: the $30 reserve and role payments scale from the $205 baseline."}</p>
-                <button className="btn btn-dark team-save" type="button" onClick={savePayrollPlan}>Save payroll plan</button>
+                <button className="btn btn-dark team-save" type="button" onClick={savePayrollPlan}>Save roles and payment plan</button>
               </article>
               <aside className="panel payment-summary">
                 <span className="panel-icon"><DollarSign size={22} /></span>
@@ -1036,7 +1037,7 @@ export default function Staff() {
                   <div><dt>Team payments</dt><dd>−${totalTeamPayments.toFixed(2)}</dd></div>
                   <div className="payment-balance"><dt>Money remaining</dt><dd className={moneyRemaining < 0 ? "negative" : "positive"}>${moneyRemaining.toFixed(2)}</dd></div>
                 </dl>
-                <p className={moneyRemaining < 0 ? "payment-warning" : "payment-ok"}>{moneyRemaining < 0 ? "The plan is over budget. Lower a payment or increase the revenue amount." : "This plan fits within the entered monthly revenue."}</p>
+                <p className={moneyRemaining < 0 ? "payment-warning" : "payment-ok"}>{moneyRemaining < 0 ? "The plan is over budget. Lower a role payment or complete more orders." : "This plan fits within this month’s completed-order revenue."}</p>
               </aside>
             </div>
           )}
