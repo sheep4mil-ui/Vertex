@@ -98,6 +98,7 @@ export default function Staff() {
   const [announcementMessage, setAnnouncementMessage] = useState("");
   const [directory, setDirectory] = useState<DirectoryMember[]>([]);
   const [messages, setMessages] = useState<StaffMessage[]>([]);
+  const [messageSystemError, setMessageSystemError] = useState("");
   const [messageRecipients, setMessageRecipients] = useState<string[]>([]);
   const [messageSubject, setMessageSubject] = useState("");
   const [messageBody, setMessageBody] = useState("");
@@ -141,7 +142,7 @@ export default function Staff() {
     const supabase = getSupabase();
     if (!supabase) return;
     await refreshOrders();
-    const [{ data: announcementData }, { data: directoryData }, { data: messageData }, { data: filamentData }] = await Promise.all([
+    const [{ data: announcementData }, { data: directoryData, error: directoryError }, { data: messageData, error: messagesError }, { data: filamentData }] = await Promise.all([
       supabase.from("announcements").select("id,subject,message,created_at").order("created_at", { ascending: false }).limit(10),
       supabase.rpc("staff_directory"),
       supabase.rpc("get_staff_messages"),
@@ -150,6 +151,7 @@ export default function Staff() {
     setAnnouncements((announcementData || []) as Announcement[]);
     setDirectory((directoryData || []) as DirectoryMember[]);
     setMessages((messageData || []) as StaffMessage[]);
+    setMessageSystemError(directoryError?.message || messagesError?.message || "");
     setFilaments((filamentData || []) as Filament[]);
     if (role === "admin") {
       const [{ data: teamData }, { data: payrollData }] = await Promise.all([supabase.rpc("get_vertex_team"), supabase.rpc("get_vertex_payroll_plan")]);
@@ -188,12 +190,13 @@ export default function Staff() {
       .order("created_at", { ascending: false })
       .limit(10);
     setAnnouncements((announcementData || []) as Announcement[]);
-    const [{ data: directoryData }, { data: messageData }] = await Promise.all([
+    const [{ data: directoryData, error: directoryError }, { data: messageData, error: messagesError }] = await Promise.all([
       supabase.rpc("staff_directory"),
       supabase.rpc("get_staff_messages"),
     ]);
     setDirectory((directoryData || []) as DirectoryMember[]);
     setMessages((messageData || []) as StaffMessage[]);
+    setMessageSystemError(directoryError?.message || messagesError?.message || "");
     const { data: filamentData } = await supabase.from("filament_inventory").select("id,material,color,spool_count,grams_available,in_stock,notes").order("material").order("color");
     setFilaments((filamentData || []) as Filament[]);
     if (profile.level === "admin") {
@@ -337,10 +340,19 @@ export default function Staff() {
       p_subject: messageSubject,
       p_body: messageBody,
     });
-    if (error) setSaved(`Message error: ${error.message}`);
+    if (error) {
+      setMessageSystemError(error.message);
+      setSaved(`Message error: ${error.message}`);
+    }
     else {
-      const { data } = await supabase.rpc("get_staff_messages");
+      const { data, error: refreshError } = await supabase.rpc("get_staff_messages");
+      if (refreshError) {
+        setMessageSystemError(refreshError.message);
+        setSaved(`Message error: ${refreshError.message}`);
+        return;
+      }
       setMessages((data || []) as StaffMessage[]);
+      setMessageSystemError("");
       setMessageRecipients([]);
       setMessageSubject("");
       setMessageBody("");
@@ -1091,6 +1103,7 @@ export default function Staff() {
                 <span className="panel-icon"><MessageSquare size={22} /></span>
                 <h2>New private message</h2>
                 <p className="panel-copy">Messages stay inside Vertex and are addressed to approved staff Gmail accounts.</p>
+                {messageSystemError && <div className="form-error">Message system error: {messageSystemError}. Run <strong>supabase/staff-messages-repair.sql</strong> in the Supabase SQL Editor.</div>}
                 <form onSubmit={sendStaffMessage}>
                   <fieldset className="recipient-picker">
                     <legend>Send to one or more people</legend>
