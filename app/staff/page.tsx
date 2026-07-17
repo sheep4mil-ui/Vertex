@@ -142,7 +142,7 @@ export default function Staff() {
       .select(
         "id,tracking_code,customer_name,customer_email,customer_phone,shipping_address,material,quantity,details,model_url,status,assigned_to,quoted_cents,update_preference,created_at",
       )
-      .neq("status", "completed")
+      .not("status", "in", "(completed,cancelled)")
       .order("created_at", { ascending: false });
     const { data } = await query;
     setOrders((data || []) as Order[]);
@@ -351,7 +351,7 @@ export default function Staff() {
       setSaved(`Order error: ${error.message}`);
       return false;
     }
-    if (data.status === "completed") {
+    if (["completed", "cancelled"].includes(data.status)) {
       setOrders((current) => current.filter((order) => order.id !== orderId));
       setSelectedOrder(null);
     } else {
