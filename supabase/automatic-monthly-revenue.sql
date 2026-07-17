@@ -1,9 +1,11 @@
 -- Makes the Payments monthly revenue total come from completed orders.
 -- Run once in the Supabase SQL Editor after cleanup-completed-orders.sql.
 
-create or replace function public.get_vertex_payroll_plan()
+drop function if exists public.get_vertex_payroll_plan();
+create function public.get_vertex_payroll_plan()
 returns table(
   monthly_revenue numeric,
+  previous_month_revenue numeric,
   printer_count integer,
   handout_count integer,
   order_taker_count integer,
@@ -19,7 +21,14 @@ begin
 
   return query
   select
-    (coalesce(sum(f.gross_revenue_cents - f.refunded_cents), 0) / 100.0)::numeric as monthly_revenue,
+    (coalesce(sum(f.gross_revenue_cents - f.refunded_cents) filter (
+      where f.completed_at >= date_trunc('month', now())
+        and f.completed_at < date_trunc('month', now()) + interval '1 month'
+    ), 0) / 100.0)::numeric as monthly_revenue,
+    (coalesce(sum(f.gross_revenue_cents - f.refunded_cents) filter (
+      where f.completed_at >= date_trunc('month', now()) - interval '1 month'
+        and f.completed_at < date_trunc('month', now())
+    ), 0) / 100.0)::numeric as previous_month_revenue,
     p.printer_count,
     p.handout_count,
     p.order_taker_count,
@@ -27,7 +36,7 @@ begin
     p.social_management_count
   from public.vertex_payroll_plan p
   left join public.completed_order_finance f
-    on f.completed_at >= date_trunc('month', now())
+    on f.completed_at >= date_trunc('month', now()) - interval '1 month'
    and f.completed_at < date_trunc('month', now()) + interval '1 month'
   where p.singleton
   group by p.printer_count, p.handout_count, p.order_taker_count,

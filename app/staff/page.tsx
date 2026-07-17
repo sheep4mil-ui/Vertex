@@ -124,6 +124,7 @@ export default function Staff() {
   const pricingDiscountPercent = pricingOrder?.promo_percent_off || 0;
   const discountedEstimatedPrice = estimatedPrice * (1 - pricingDiscountPercent / 100);
   const [monthlyRevenue, setMonthlyRevenue] = useState(0);
+  const [previousMonthRevenue, setPreviousMonthRevenue] = useState(0);
   const [paymentRows, setPaymentRows] = useState<PaymentRow[]>([
     { role: "Printer", count: 2, baseAmount: 30 },
     { role: "Handout", count: 0, baseAmount: 10 },
@@ -176,6 +177,7 @@ export default function Staff() {
       const payroll = Array.isArray(payrollData) ? payrollData[0] : payrollData;
       if (payroll) {
         setMonthlyRevenue(Number(payroll.monthly_revenue));
+        setPreviousMonthRevenue(Number(payroll.previous_month_revenue || 0));
         setPaymentRows((rows) => rows.map((row) => ({ ...row, count: Number(payroll[`${row.role.toLowerCase().replaceAll(" ", "_")}_count`] ?? row.count) })));
       }
     }
@@ -225,6 +227,7 @@ export default function Staff() {
       const payroll = Array.isArray(payrollData) ? payrollData[0] : payrollData;
       if (payroll) {
         setMonthlyRevenue(Number(payroll.monthly_revenue));
+        setPreviousMonthRevenue(Number(payroll.previous_month_revenue || 0));
         setPaymentRows((rows) => rows.map((row) => ({
           ...row,
           count: Number(payroll[`${row.role.toLowerCase().replaceAll(" ", "_")}_count`] ?? row.count),
@@ -1008,6 +1011,11 @@ export default function Staff() {
                     <label htmlFor="expense-reserve">Scaled company expense reserve</label>
                     <input id="expense-reserve" type="text" value={`$${expenseReserve.toFixed(2)}`} readOnly />
                   </div>
+                </div>
+                <div className="last-month-revenue">
+                  <span>Last month&rsquo;s final revenue</span>
+                  <strong>${previousMonthRevenue.toFixed(2)}</strong>
+                  <small>Automatically replaced when a new calendar month begins.</small>
                 </div>
                 <div className="payment-table-wrap">
                   <table className="table payment-table">
