@@ -244,7 +244,8 @@ export default function Staff() {
       channel = channel.on("postgres_changes", { event: "*", schema: "public", table }, refreshSharedData);
     });
     channel.subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const fallbackSync = window.setInterval(refreshSharedData, 5000);
+    return () => { window.clearInterval(fallbackSync); supabase.removeChannel(channel); };
   }, [logged, role]);
 
   async function signOut() {
@@ -390,7 +391,16 @@ export default function Staff() {
     e.preventDefault();
     const supabase = getSupabase();
     if (!supabase) return;
-    const { data, error } = await supabase.from("filament_inventory").insert({ ...newFilament, color: newFilament.color.trim(), notes: newFilament.notes.trim(), in_stock: newFilament.grams_available > 0 }).select().single();
+    const normalizedColor = newFilament.color.trim().toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
+    const existing = filaments.find((filament) => filament.material.trim().toLowerCase() === newFilament.material.trim().toLowerCase() && filament.color.trim().toLowerCase() === normalizedColor.toLowerCase());
+    if (existing) {
+      const merged = { ...existing, color: normalizedColor, spool_count: existing.spool_count + newFilament.spool_count, grams_available: existing.grams_available + newFilament.grams_available, in_stock: true, notes: newFilament.notes.trim() || existing.notes };
+      const { error } = await supabase.from("filament_inventory").update(merged).eq("id", existing.id);
+      if (error) setSaved(`Inventory error: ${error.message}`);
+      else { setFilaments((current) => current.map((item) => item.id === existing.id ? merged : item)); setNewFilament({ material: "PLA", color: "", spool_count: 1, grams_available: 1000, notes: "" }); setSaved(`${merged.material} ${merged.color}`); }
+      return;
+    }
+    const { data, error } = await supabase.from("filament_inventory").insert({ ...newFilament, color: normalizedColor, notes: newFilament.notes.trim(), in_stock: newFilament.grams_available > 0 }).select().single();
     if (error) setSaved(`Inventory error: ${error.message}`);
     else {
       setFilaments((current) => [...current, data as Filament]);
@@ -402,7 +412,9 @@ export default function Staff() {
   async function saveFilament(filament: Filament) {
     const supabase = getSupabase();
     if (!supabase) return;
-    const { error } = await supabase.from("filament_inventory").update({ material: filament.material, color: filament.color, spool_count: filament.spool_count, grams_available: filament.grams_available, in_stock: filament.in_stock, notes: filament.notes }).eq("id", filament.id);
+    const normalizedColor = filament.color.trim().toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
+    const { error } = await supabase.from("filament_inventory").update({ material: filament.material.trim().toUpperCase(), color: normalizedColor, spool_count: filament.spool_count, grams_available: filament.grams_available, in_stock: filament.in_stock, notes: filament.notes.trim() }).eq("id", filament.id);
+    if (!error) setFilaments((current) => current.map((item) => item.id === filament.id ? { ...item, material: filament.material.trim().toUpperCase(), color: normalizedColor, notes: filament.notes.trim() } : item));
     setSaved(error ? `Inventory error: ${error.message}` : `${filament.material} ${filament.color}`);
   }
 
@@ -923,7 +935,7 @@ export default function Staff() {
                   <h2>Add filament</h2>
                   <form className="inventory-form" onSubmit={addFilament}>
                     <div className="field"><label htmlFor="filament-material">Material</label><select id="filament-material" value={newFilament.material} onChange={(e) => setNewFilament({ ...newFilament, material: e.target.value })}><option>PLA</option><option>PETG</option><option>TPU</option><option>ABS</option><option>Other</option></select></div>
-                    <div className="field"><label htmlFor="filament-color">Color</label><input id="filament-color" required value={newFilament.color} onChange={(e) => setNewFilament({ ...newFilament, color: e.target.value })} /></div>
+                    <div className="field"><label htmlFor="filament-color">Color</label><input id="filament-color" list="filament-color-options" required value={newFilament.color} onChange={(e) => setNewFilament({ ...newFilament, color: e.target.value })} /><datalist id="filament-color-options">{["Black","White","Gray","Red","Orange","Yellow","Green","Blue","Purple","Pink","Brown","Clear", ...filaments.map((item) => item.color)].filter((color, index, colors) => colors.findIndex((item) => item.toLowerCase() === color.toLowerCase()) === index).map((color) => <option key={color} value={color} />)}</datalist></div>
                     <div className="field"><label htmlFor="filament-spools">Spools</label><input id="filament-spools" type="number" min="0" step="0.25" value={newFilament.spool_count} onChange={(e) => setNewFilament({ ...newFilament, spool_count: Math.max(0, Number(e.target.value)) })} /></div>
                     <div className="field"><label htmlFor="filament-grams">Approx. grams</label><input id="filament-grams" type="number" min="0" value={newFilament.grams_available} onChange={(e) => setNewFilament({ ...newFilament, grams_available: Math.max(0, Number(e.target.value)) })} /></div>
                     <div className="field inventory-notes"><label htmlFor="filament-notes">Notes</label><input id="filament-notes" value={newFilament.notes} onChange={(e) => setNewFilament({ ...newFilament, notes: e.target.value })} /></div>
@@ -938,7 +950,7 @@ export default function Staff() {
                   {filaments.length === 0 ? <tr><td colSpan={canManageInventory ? 7 : 6}>No filament records found. An admin or printer can add stock after filament-inventory.sql is activated.</td></tr> : filaments.map((filament) => (
                     <tr key={filament.id}>
                       <td>{canManageInventory ? <input className="inventory-input" value={filament.material} onChange={(e) => setFilaments((items) => items.map((item) => item.id === filament.id ? { ...item, material: e.target.value } : item))} onBlur={() => saveFilament(filament)} /> : filament.material}</td>
-                      <td>{canManageInventory ? <input className="inventory-input" value={filament.color} onChange={(e) => setFilaments((items) => items.map((item) => item.id === filament.id ? { ...item, color: e.target.value } : item))} onBlur={() => saveFilament(filament)} /> : filament.color}</td>
+                      <td>{canManageInventory ? <input className="inventory-input" list="filament-color-options" value={filament.color} onChange={(e) => setFilaments((items) => items.map((item) => item.id === filament.id ? { ...item, color: e.target.value } : item))} onBlur={() => saveFilament(filament)} /> : filament.color}</td>
                       <td>{canManageInventory ? <input className="table-number" type="number" min="0" step="0.25" value={filament.spool_count} onChange={(e) => setFilaments((items) => items.map((item) => item.id === filament.id ? { ...item, spool_count: Math.max(0, Number(e.target.value)) } : item))} onBlur={() => saveFilament(filament)} /> : filament.spool_count}</td>
                       <td>{canManageInventory ? <input className="table-number" type="number" min="0" value={filament.grams_available} onChange={(e) => setFilaments((items) => items.map((item) => item.id === filament.id ? { ...item, grams_available: Math.max(0, Number(e.target.value)) } : item))} onBlur={() => saveFilament(filament)} /> : filament.grams_available}</td>
                       <td>{canManageInventory ? <label className="access-toggle"><input type="checkbox" checked={filament.in_stock} onChange={(e) => { const updated = { ...filament, in_stock: e.target.checked }; setFilaments((items) => items.map((item) => item.id === filament.id ? updated : item)); saveFilament(updated); }} /> In stock</label> : <span className={`pill ${filament.in_stock ? "printing" : "cancelled"}`}>{filament.in_stock ? "In stock" : "Out"}</span>}</td>
