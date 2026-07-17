@@ -570,6 +570,7 @@ export default function Staff() {
                       </div>
                       <button className="btn btn-light" type="button" onClick={() => updateOrder(selectedOrder.id, { assigned_to: selectedOrder.assigned_to }, "Order assignment")}>Save assignment</button>
                       {selectedOrder.status === "requested" && <button className="btn btn-dark" type="button" onClick={() => updateOrder(selectedOrder.id, { status: "approved", assigned_to: selectedOrder.assigned_to }, "Order accepted")}>Accept order</button>}
+                      {selectedOrder.status === "requested" && <button className="btn btn-deny" type="button" onClick={() => { if (window.confirm(`Deny order #${selectedOrder.tracking_code}?`)) updateOrder(selectedOrder.id, { status: "cancelled", assigned_to: null }, "Order denied"); }}>Deny order</button>}
                     </div>
                   )}
                 </article>
