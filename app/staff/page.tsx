@@ -976,7 +976,7 @@ export default function Staff() {
                           <td>{application.age_range}</td>
                           <td><span className={`pill hiring-${application.status}`}>{application.status}</span></td>
                           <td>{new Date(application.created_at).toLocaleDateString()}</td>
-                          <td><button className="btn btn-light table-save" onClick={() => setSelectedApplication(application)}>Review</button></td>
+                          <td><button className="btn btn-light table-save" onClick={() => setSelectedApplication(application)}>View hire</button></td>
                         </tr>
                       ))}
                     </tbody>
