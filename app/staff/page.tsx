@@ -336,7 +336,7 @@ export default function Staff() {
     return (
       <main className="login">
         <div className="login-card">
-          <a className="brand" href="../#order">
+          <a className="brand" href="https://sheep4mil-ui.github.io/Vertex/#order">
             <span className="mark">V</span>Vertex
           </a>
           <h1>Team sign in</h1>
@@ -400,7 +400,7 @@ export default function Staff() {
     <main className="portal">
       <div className="portal-grid">
         <aside className="side">
-          <a className="brand" href="../#order">
+          <a className="brand" href="https://sheep4mil-ui.github.io/Vertex/#order">
             <span className="mark">V</span>Vertex
           </a>
           <nav>
