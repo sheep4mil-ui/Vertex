@@ -183,6 +183,12 @@ export default function Home() {
                 <br />
                 <ShieldCheck size={18} /> Contact details kept private
               </p>
+              <p className="cnc-note">
+                <strong>Need CNC machining?</strong><br />
+                Limited CNC work may be available from time to time by request
+                for an additional charge. Availability and pricing are
+                confirmed before your order is accepted.
+              </p>
             </aside>
             <form className="form" onSubmit={submit}>
               {message && (
