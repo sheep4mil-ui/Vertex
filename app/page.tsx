@@ -236,6 +236,11 @@ export default function Home() {
                 request and either accept or deny it. Availability and pricing
                 are confirmed before an accepted order moves forward.
               </p>
+              <div className="careers-callout">
+                <strong>Want to join Vertex?</strong>
+                <span>Send us a résumé-style application for an available team position.</span>
+                <a className="btn btn-dark" href="./apply/">Apply for a position <ArrowRight size={16} /></a>
+              </div>
             </aside>
             <form className="form" onSubmit={submit}>
               <div className="order-type-tabs" role="tablist" aria-label="Order type">
