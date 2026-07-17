@@ -186,8 +186,9 @@ export default function Home() {
               <p className="cnc-note">
                 <strong>Need CNC machining?</strong><br />
                 Limited CNC work may be available from time to time by request
-                for an additional charge. Availability and pricing are
-                confirmed before your order is accepted.
+                for an additional charge. Upper management will review the
+                request and either accept or deny it. Availability and pricing
+                are confirmed before an accepted order moves forward.
               </p>
             </aside>
             <form className="form" onSubmit={submit}>
